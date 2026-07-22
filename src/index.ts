@@ -1,6 +1,9 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger.js';
+
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import stationRoutes from './routes/station.routes.js';
@@ -19,11 +22,15 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Swagger OpenAPI Documentation
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Health check endpoint
 app.get('/', (req: Request, res: Response) => {
   return sendSuccess(res, 'PackLoop Backend API is running smoothly!', {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
+    documentation: `http://localhost:${PORT}/docs`,
   });
 });
 
@@ -44,6 +51,7 @@ app.use((req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`🚀 PackLoop Backend Server is running on port ${PORT}`);
   console.log(`📡 Health check: http://localhost:${PORT}/`);
+  console.log(`📚 Swagger UI OpenAPI Docs: http://localhost:${PORT}/docs`);
 });
 
 export default app;

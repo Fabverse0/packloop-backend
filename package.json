@@ -1,12 +1,12 @@
 {
   "name": "packloop-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "PackLoop Backend Core API",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && node -e \"import('fs').then(fs => { fs.mkdirSync('dist/docs', {recursive:true}); fs.copyFileSync('src/docs/openapi.yaml', 'dist/docs/openapi.yaml'); })\"",
     "start": "node dist/index.js"
   },
   "repository": {
@@ -24,12 +24,16 @@
     "@supabase/supabase-js": "^2.110.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.1",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/yamljs": "^0.2.34",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2"
   }
