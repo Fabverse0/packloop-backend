@@ -2,6 +2,11 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
+import userRoutes from './routes/user.routes.js';
+import stationRoutes from './routes/station.routes.js';
+import depositRoutes from './routes/deposit.routes.js';
+import rewardRoutes from './routes/reward.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 import { sendSuccess, sendError } from './utils/response.js';
 
 dotenv.config();
@@ -24,6 +29,11 @@ app.get('/', (req: Request, res: Response) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/stations', stationRoutes);
+app.use('/api/deposits', depositRoutes);
+app.use('/api/rewards', rewardRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 Not Found Handler
 app.use((req: Request, res: Response) => {
