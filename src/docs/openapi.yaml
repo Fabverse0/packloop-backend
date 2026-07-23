@@ -41,6 +41,20 @@ components:
         data:
           type: object
 
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Pesan penjelasan kesalahan / error
+        error:
+          type: string
+          nullable: true
+          example: Detail teknis error atau null
+
     Profile:
       type: object
       properties:
@@ -98,12 +112,11 @@ components:
           example: 106.7984
         status:
           type: string
-          enum: [ACTIVE, MAINTENANCE, OFFLINE]
+          enum: [ACTIVE, MAINTENANCE, FULL]
           example: ACTIVE
-        compartments:
-          type: array
-          items:
-            $ref: '#/components/schemas/Compartment'
+        created_at:
+          type: string
+          format: date-time
 
     Compartment:
       type: object
@@ -139,16 +152,18 @@ components:
           type: string
           enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
           example: CARDBOARD
-        name:
+        display_name:
           type: string
-          example: Kardus
-        unit:
-          type: string
-          enum: [GRAM, ITEM]
-          example: GRAM
+          example: Kardus Bekas
         reward_points_per_unit:
           type: integer
-          example: 10
+          example: 100
+        points_unit_type:
+          type: string
+          example: KG
+        points_per_kg:
+          type: integer
+          example: 100
         carbon_saved_per_unit_kg:
           type: number
           format: float
@@ -263,6 +278,55 @@ components:
           type: string
           format: date-time
 
+  responses:
+    BadRequestError:
+      description: |
+        Validasi input gagal (HTTP 400 Bad Request).
+        Terjadi jika field wajib tidak diisi, format UUID salah, berat/poin <= 0, atau enum tidak sesuai.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: Nilai weightOrCount harus berupa angka positif (lebih dari 0)
+            error: null
+
+    UnauthorizedError:
+      description: |
+        Akses ditolak / belum terautentikasi (HTTP 401 Unauthorized).
+        Terjadi jika Header `Authorization: Bearer <TOKEN>` tidak dikirim, token malformed, atau kedaluwarsa.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: Token tidak valid atau telah kedaluwarsa.
+            error: invalid JWT
+
+    NotFoundError:
+      description: Resource atau data tidak ditemukan (HTTP 404 Not Found).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: Data tidak ditemukan.
+            error: null
+
+    InternalServerError:
+      description: Kesalahan internal pada server backend (HTTP 500 Internal Server Error).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: Terjadi kesalahan internal pada server. Silakan coba lagi nanti.
+            error: null
+
 paths:
   /:
     get:
@@ -294,9 +358,17 @@ paths:
                   example: eyJhbGciOiJFUzI1NiIs...
       responses:
         '200':
-          description: Token valid.
+          description: Token valid & user terdaftar.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
         '401':
-          description: Token tidak valid.
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/auth/me:
     get:
@@ -308,8 +380,14 @@ paths:
       responses:
         '200':
           description: Data pengguna aktif dikembalikan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '401':
-          description: Akses ditolak.
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/users/profile:
     get:
@@ -334,7 +412,11 @@ paths:
                   data:
                     $ref: '#/components/schemas/Profile'
         '401':
-          description: Akses ditolak.
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
     put:
       tags:
@@ -361,6 +443,12 @@ paths:
       responses:
         '200':
           description: Profil berhasil di-update.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
     delete:
       tags:
@@ -371,6 +459,10 @@ paths:
       responses:
         '200':
           description: Akun terhapus permanen.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/stations:
     get:
@@ -391,6 +483,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Station'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/stations/{id}:
     get:
@@ -407,8 +501,12 @@ paths:
       responses:
         '200':
           description: Detail stasiun.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
         '404':
-          description: Stasiun tidak ditemukan.
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/stations/{id}/compartments:
     get:
@@ -425,6 +523,10 @@ paths:
       responses:
         '200':
           description: Daftar kompartemen.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/deposits:
     post:
@@ -465,13 +567,11 @@ paths:
         '201':
           description: Setoran berhasil dicatat (+poin & +karbon).
         '400':
-          description: |
-            Validasi input gagal. Kemungkinan penyebab:
-            - `weightOrCount` bernilai nol, negatif, atau bukan angka.
-            - `wasteType` bukan salah satu dari: CARDBOARD, BUBBLE_WRAP, TOTE_BAG.
-            - `stationId` atau `compartmentId` bukan format UUID yang valid.
+          $ref: '#/components/responses/BadRequestError'
         '401':
-          description: Token tidak valid atau belum login.
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
     get:
       tags:
@@ -482,6 +582,10 @@ paths:
       responses:
         '200':
           description: Daftar setoran.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/deposits/{id}:
     get:
@@ -501,7 +605,13 @@ paths:
         '200':
           description: Detail setoran & log tracking.
         '400':
-          description: Format ID setoran tidak valid (harus UUID).
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
     delete:
       tags:
@@ -520,7 +630,11 @@ paths:
         '200':
           description: Setoran dibatalkan.
         '400':
-          description: Format ID tidak valid, atau setoran sudah tidak berstatus DEPOSITED.
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/rewards/rules:
     get:
@@ -530,6 +644,8 @@ paths:
       responses:
         '200':
           description: Aturan reward.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/rewards/redeem:
     post:
@@ -563,13 +679,11 @@ paths:
         '201':
           description: Penukaran poin berhasil.
         '400':
-          description: |
-            Validasi input gagal. Kemungkinan penyebab:
-            - `pointsRedeemed` bernilai nol, negatif, atau bukan angka.
-            - `eWalletProvider` bukan salah satu dari: GOPAY, OVO, DANA, LINKAJA.
-            - Saldo poin tidak mencukupi atau minimal 500 poin.
+          $ref: '#/components/responses/BadRequestError'
         '401':
-          description: Token tidak valid atau belum login.
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/rewards/history:
     get:
@@ -581,6 +695,10 @@ paths:
       responses:
         '200':
           description: Riwayat penukaran poin.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/rewards/history/{id}:
     delete:
@@ -600,7 +718,11 @@ paths:
         '200':
           description: Penukaran dibatalkan & poin dikembalikan.
         '400':
-          description: Format ID tidak valid, atau penukaran sudah berstatus SUCCESS/FAILED.
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/notifications:
     get:
@@ -612,6 +734,10 @@ paths:
       responses:
         '200':
           description: Daftar notifikasi.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
     delete:
       tags:
@@ -622,6 +748,10 @@ paths:
       responses:
         '200':
           description: Seluruh notifikasi dibersihkan.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/notifications/{id}:
     delete:
@@ -640,6 +770,12 @@ paths:
       responses:
         '200':
           description: Notifikasi terhapus.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/notifications/{id}/read:
     put:
@@ -658,3 +794,9 @@ paths:
       responses:
         '200':
           description: Notifikasi telah dibaca.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
