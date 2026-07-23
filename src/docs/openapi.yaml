@@ -464,6 +464,14 @@ paths:
       responses:
         '201':
           description: Setoran berhasil dicatat (+poin & +karbon).
+        '400':
+          description: |
+            Validasi input gagal. Kemungkinan penyebab:
+            - `weightOrCount` bernilai nol, negatif, atau bukan angka.
+            - `wasteType` bukan salah satu dari: CARDBOARD, BUBBLE_WRAP, TOTE_BAG.
+            - `stationId` atau `compartmentId` bukan format UUID yang valid.
+        '401':
+          description: Token tidak valid atau belum login.
 
     get:
       tags:
@@ -492,6 +500,8 @@ paths:
       responses:
         '200':
           description: Detail setoran & log tracking.
+        '400':
+          description: Format ID setoran tidak valid (harus UUID).
 
     delete:
       tags:
@@ -509,6 +519,8 @@ paths:
       responses:
         '200':
           description: Setoran dibatalkan.
+        '400':
+          description: Format ID tidak valid, atau setoran sudah tidak berstatus DEPOSITED.
 
   /api/rewards/rules:
     get:
@@ -550,6 +562,14 @@ paths:
       responses:
         '201':
           description: Penukaran poin berhasil.
+        '400':
+          description: |
+            Validasi input gagal. Kemungkinan penyebab:
+            - `pointsRedeemed` bernilai nol, negatif, atau bukan angka.
+            - `eWalletProvider` bukan salah satu dari: GOPAY, OVO, DANA, LINKAJA.
+            - Saldo poin tidak mencukupi atau minimal 500 poin.
+        '401':
+          description: Token tidak valid atau belum login.
 
   /api/rewards/history:
     get:
@@ -579,6 +599,8 @@ paths:
       responses:
         '200':
           description: Penukaran dibatalkan & poin dikembalikan.
+        '400':
+          description: Format ID tidak valid, atau penukaran sudah berstatus SUCCESS/FAILED.
 
   /api/notifications:
     get:
