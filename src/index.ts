@@ -11,6 +11,7 @@ import depositRoutes from './routes/deposit.routes.js';
 import rewardRoutes from './routes/reward.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import { sendSuccess, sendError } from './utils/response.js';
+import { errorHandler } from './middleware/error.middleware.js';
 
 dotenv.config();
 
@@ -46,6 +47,9 @@ app.use('/api/notifications', notificationRoutes);
 app.use((req: Request, res: Response) => {
   return sendError(res, `Route ${req.originalUrl} tidak ditemukan.`, null, 404);
 });
+
+// Centralized Error Handler (harus di paling bawah)
+app.use(errorHandler);
 
 // Start Server
 app.listen(PORT, () => {
