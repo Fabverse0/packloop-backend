@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { RewardService } from '../services/reward.service.js';
 import { sendSuccess, sendError } from '../utils/response.js';
+import { isPositiveNumber, isValidEWalletProvider, isValidUUID } from '../utils/validation.js';
 
 export class RewardController {
   static async getRules(_req: Request, res: Response) {
@@ -21,8 +22,19 @@ export class RewardController {
 
       const { eWalletProvider, accountNumber, pointsRedeemed } = req.body;
 
-      if (!eWalletProvider || !accountNumber || !pointsRedeemed) {
+      // Validasi kelengkapan field
+      if (!eWalletProvider || !accountNumber || pointsRedeemed === undefined) {
         return sendError(res, 'Field eWalletProvider, accountNumber, dan pointsRedeemed wajib diisi', null, 400);
+      }
+
+      // Validasi provider e-wallet
+      if (!isValidEWalletProvider(eWalletProvider)) {
+        return sendError(res, 'Provider e-wallet tidak valid. Pilih: GOPAY, OVO, DANA, atau LINKAJA', null, 400);
+      }
+
+      // Validasi poin harus angka positif (> 0)
+      if (!isPositiveNumber(pointsRedeemed)) {
+        return sendError(res, 'Nilai pointsRedeemed harus berupa angka positif (lebih dari 0)', null, 400);
       }
 
       const redemption = await RewardService.redeemPoints({
@@ -60,6 +72,10 @@ export class RewardController {
       }
 
       const id = req.params.id as string;
+      if (!isValidUUID(id)) {
+        return sendError(res, 'Format ID penukaran tidak valid (harus UUID)', null, 400);
+      }
+
       await RewardService.cancelRedemption(id, userId);
       return sendSuccess(res, 'Permintaan penukaran poin berhasil dibatalkan', null);
     } catch (error: any) {

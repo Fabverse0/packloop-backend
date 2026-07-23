@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { DepositService } from '../services/deposit.service.js';
 import { sendSuccess, sendError } from '../utils/response.js';
+import { isPositiveNumber, isValidWasteType, isValidUUID } from '../utils/validation.js';
 
 export class DepositController {
   static async createDeposit(req: Request, res: Response) {
@@ -12,8 +13,27 @@ export class DepositController {
 
       const { stationId, compartmentId, wasteType, weightOrCount } = req.body;
 
-      if (!stationId || !compartmentId || !wasteType || !weightOrCount) {
+      // Validasi kelengkapan field
+      if (!stationId || !compartmentId || !wasteType || weightOrCount === undefined) {
         return sendError(res, 'Field stationId, compartmentId, wasteType, dan weightOrCount wajib diisi', null, 400);
+      }
+
+      // Validasi format UUID
+      if (!isValidUUID(stationId)) {
+        return sendError(res, 'Format stationId tidak valid (harus UUID)', null, 400);
+      }
+      if (!isValidUUID(compartmentId)) {
+        return sendError(res, 'Format compartmentId tidak valid (harus UUID)', null, 400);
+      }
+
+      // Validasi jenis kemasan
+      if (!isValidWasteType(wasteType)) {
+        return sendError(res, 'Jenis kemasan tidak valid. Pilih: CARDBOARD, BUBBLE_WRAP, atau TOTE_BAG', null, 400);
+      }
+
+      // Validasi berat/jumlah harus angka positif (> 0)
+      if (!isPositiveNumber(weightOrCount)) {
+        return sendError(res, 'Nilai weightOrCount harus berupa angka positif (lebih dari 0)', null, 400);
       }
 
       const deposit = await DepositService.createDeposit({
@@ -52,6 +72,10 @@ export class DepositController {
       }
 
       const id = req.params.id as string;
+      if (!isValidUUID(id)) {
+        return sendError(res, 'Format ID setoran tidak valid (harus UUID)', null, 400);
+      }
+
       const deposit = await DepositService.getDepositById(id, userId);
       return sendSuccess(res, 'Berhasil mengambil detail setoran', deposit);
     } catch (error: any) {
@@ -67,6 +91,10 @@ export class DepositController {
       }
 
       const id = req.params.id as string;
+      if (!isValidUUID(id)) {
+        return sendError(res, 'Format ID setoran tidak valid (harus UUID)', null, 400);
+      }
+
       await DepositService.deleteDeposit(id, userId);
       return sendSuccess(res, 'Transaksi setoran berhasil dibatalkan dan dihapus', null);
     } catch (error: any) {
