@@ -8,4 +8,4 @@ const __dirname = path.dirname(__filename);
 // Path ke openapi.yaml
 const openapiPath = path.join(__dirname, '../docs/openapi.yaml');
 
-export const swaggerSpec = yaml.load(openapiPath);
+export const openapiSpec = yaml.load(openapiPath);
