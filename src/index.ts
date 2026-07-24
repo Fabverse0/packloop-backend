@@ -31,7 +31,17 @@ app.use(
       content: openapiSpec,
     },
     theme: 'purple',
-    pageTitle: 'PackLoop API Reference',
+    pageTitle: 'PackLoop Core API Reference & Documentation',
+    layout: 'modern',
+    showSidebar: true,
+    metaData: {
+      title: 'PackLoop API Reference',
+      description: 'Dokumentasi Resmi OpenAPI 3.0 & Reference untuk Mobile Client dan IoT Station PackLoop.',
+    },
+    defaultHttpClient: {
+      targetKey: 'js',
+      clientKey: 'fetch',
+    },
   })
 );
 
