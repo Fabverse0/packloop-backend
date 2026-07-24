@@ -2,23 +2,47 @@ openapi: 3.0.3
 info:
   title: PackLoop Backend Core API Documentation
   description: |
-    Dokumentasi resmi OpenAPI 3.0 & API Reference untuk aplikasi **PackLoop** (Mobile Client & IoT Stations).
+    Dokumentasi resmi OpenAPI 3.0 & API Reference lengkap untuk aplikasi **PackLoop** (Mobile Client & IoT Stations).
     
-    ### Fitur Utama:
-    * **Autentikasi**: Supabase Auth (Google OAuth & Phone OTP verification).
-    * **Dashboard & Profile**: Rekap total kemasan terserap, total poin reward, dan carbon saved.
-    * **Peta & Stasiun IoT**: Lokasi PackCycle Station & kapasitas kompartemen real-time (Kardus, Bubble Wrap, Tote Bag).
-    * **Setor Kemasan (Drop-off)**: Pencatatan setoran, auto-kalkulasi poin & karbon, serta order tracking daur ulang.
-    * **Reward & E-Wallet**: Konversi poin ke Gopay, OVO, Dana, LinkAja.
-    * **Notifikasi**: Notifikasi real-time & alert pickup stasiun.
+    ### 🌿 Tentang PackLoop:
+    PackLoop adalah platform daur ulang kemasan belanja bekas (kardus, bubble wrap, tote bag) berbasis IoT dan kompensasi reward. 
+    Aplikasi ini terhubung langsung dengan **PackCycle Station** di berbagai lokasi strategis.
+    
+    ### 🔑 Panduan Autentikasi:
+    1. Lakukan login melalui Supabase Auth di aplikasi mobile.
+    2. Salin `access_token` (JWT Token) yang didapatkan.
+    3. Pada Scalar API Reference ini, klik tombol **Authorize** / **Bearer Auth** di bagian kanan atas atau pada setiap endpoint.
+    4. Masukkan token dengan format `Bearer <TOKEN_JWT_SUPABASE>`.
+    
+    ### 🛠️ Fitur Utama API:
+    * **Autentikasi**: Supabase Auth (Google OAuth & Phone OTP).
+    * **Dashboard & Profile**: Rekap total kemasan terserap, total poin reward, dan perkiraan *carbon saved*.
+    * **Peta & Stasiun IoT**: Lokasi stasiun fisik & pantauan kapasitas kompartemen real-time.
+    * **Setor Kemasan (Drop-off)**: Pencatatan setoran, kalkulasi poin/karbon instan, serta *order tracking daur ulang*.
+    * **Reward & E-Wallet**: Konversi poin ke GoPay, OVO, DANA, dan LinkAja.
+    * **Notifikasi**: Alert real-time transaksi & update proses daur ulang.
   version: 1.0.0
   contact:
-    name: Tim Pengembang PackLoop
+    name: Tim Pengembang Backend PackLoop
     url: https://github.com/Fabverse0/packloop-backend
 
 servers:
   - url: http://localhost:5000
     description: Server Lokal (Development)
+
+tags:
+  - name: Autentikasi
+    description: Endpoint untuk manajemen sesi login, verifikasi Supabase JWT Token, dan pengambil data user aktif.
+  - name: User Profile & Dashboard
+    description: Pengelolaan profil pengguna, update data pribadi, rekap statistik (total poin, total kg kemasan, carbon saved), dan hapus akun.
+  - name: Maps & Stasiun PackCycle
+    description: Informasi lokasi stasiun drop-off fisik (PackCycle Station), koordinat lat/lng, dan pantauan kapasitas kompartemen real-time.
+  - name: Setor Kemasan (Drop-off)
+    description: Alur setor kemasan daur ulang (kardus, bubble wrap, tote bag), pencatatan timbangan, kalkulasi otomatis poin & karbon, order tracking timeline, dan pembatalan setoran.
+  - name: Reward & E-Wallet
+    description: Aturan perhitungan reward, transaksi penukaran poin ke E-Wallet (GoPay, OVO, DANA, LinkAja), dan riwayat/pembatalan penukaran.
+  - name: Notifications
+    description: Notifikasi real-time transaksi setoran, alert kapasitas stasiun, update status daur ulang, dan pengelolaan notifikasi user.
 
 components:
   securitySchemes:
@@ -26,7 +50,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Masukkan Supabase JWT Access Token (didapatkan dari login Supabase Auth).
+      description: Masukkan Supabase JWT Access Token yang didapatkan setelah login pengguna.
 
   schemas:
     ApiResponse:
@@ -34,26 +58,32 @@ components:
       properties:
         success:
           type: boolean
+          description: Indikator keberhasilan operasi (true/false)
           example: true
         message:
           type: string
+          description: Pesan penjelasan hasil eksekusi API
           example: Berhasil memproses permintaan
         data:
           type: object
+          description: Data utama hasil kembalian API
 
     ErrorResponse:
       type: object
       properties:
         success:
           type: boolean
+          description: Selalu bernilai false pada skenario error
           example: false
         message:
           type: string
-          example: Pesan penjelasan kesalahan / error
+          description: Pesan penjelasan ramah pengguna tentang penyebab kesalahan
+          example: Field stationId, compartmentId, wasteType, dan weightOrCount wajib diisi
         error:
           type: string
           nullable: true
-          example: Detail teknis error atau null
+          description: Detail teknis error (stack trace/sistem error) jika dalam mode dev, atau null
+          example: null
 
     Profile:
       type: object
@@ -61,33 +91,42 @@ components:
         id:
           type: string
           format: uuid
+          description: UUID unik pengguna dari Supabase Auth
           example: 53c82597-7e19-4f35-affa-aac08022c634
         full_name:
           type: string
+          description: Nama lengkap pengguna
           example: Indy Agustin
         phone_number:
           type: string
+          description: Nomor telepon terverifikasi
           example: "081234567890"
         avatar_url:
           type: string
+          description: URL foto profil pengguna
           example: https://lh3.googleusercontent.com/a/ACg8ocL...
         total_points:
           type: integer
+          description: Total akumulasi poin reward aktif saat ini
           example: 1250
         total_weight_kg:
           type: number
           format: float
+          description: Total berat (kg) seluruh kemasan yang telah disetor
           example: 50.00
         total_carbon_saved_kg:
           type: number
           format: float
+          description: Estimasi emisi karbon (kg CO2e) yang berhasil dihemat
           example: 75.00
         created_at:
           type: string
           format: date-time
+          description: Waktu pendaftaran akun
         updated_at:
           type: string
           format: date-time
+          description: Waktu pembaruan profil terakhir
 
     Station:
       type: object
@@ -95,24 +134,30 @@ components:
         id:
           type: string
           format: uuid
+          description: UUID unik stasiun PackCycle
           example: 11111111-1111-1111-1111-111111111111
         name:
           type: string
+          description: Nama stasiun / lokasi landmark
           example: Halte Transjakarta CSW
         address:
           type: string
+          description: Alamat fisik lengkap stasiun
           example: Jl. Trunojoyo, Kebayoran Baru, Jakarta Selatan
         latitude:
           type: number
           format: float
+          description: Koordinat garis lintang (latitude) untuk Peta/Maps
           example: -6.2403
         longitude:
           type: number
           format: float
+          description: Koordinat garis bujur (longitude) untuk Peta/Maps
           example: 106.7984
         status:
           type: string
           enum: [ACTIVE, MAINTENANCE, FULL]
+          description: Status operasional stasiun fisik
           example: ACTIVE
         created_at:
           type: string
@@ -124,25 +169,31 @@ components:
         id:
           type: string
           format: uuid
+          description: UUID unik kompartemen di dalam stasiun
           example: a1111111-1111-1111-1111-111111111111
         station_id:
           type: string
           format: uuid
+          description: ID stasiun pemilik kompartemen ini
         waste_type:
           type: string
           enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
+          description: Jenis kemasan spesifik yang ditampung kompartemen ini
           example: CARDBOARD
         current_weight_kg:
           type: number
           format: float
+          description: Berat muatan kemasan saat ini di dalam kompartemen (kg)
           example: 60.00
         max_capacity_kg:
           type: number
           format: float
+          description: Kapasitas maksimal penampungan kompartemen (kg)
           example: 150.00
         status:
           type: string
           enum: [AVAILABLE, ALMOST_FULL, FULL]
+          description: Status ketersediaan penampungan kompartemen
           example: AVAILABLE
 
     WasteTypeConfig:
@@ -151,22 +202,28 @@ components:
         waste_type:
           type: string
           enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
+          description: Kode unik jenis kemasan
           example: CARDBOARD
         display_name:
           type: string
+          description: Nama tampilan jenis kemasan di aplikasi
           example: Kardus Bekas
         reward_points_per_unit:
           type: integer
+          description: Poin reward per unit/kg kemasan
           example: 100
         points_unit_type:
           type: string
+          description: Satuan ukuran (KG / UNIT)
           example: KG
         points_per_kg:
           type: integer
+          description: Konversi poin per kilogram
           example: 100
         carbon_saved_per_unit_kg:
           type: number
           format: float
+          description: Faktor pengurang karbon per kg kemasan
           example: 1.5
 
     Deposit:
@@ -175,50 +232,64 @@ components:
         id:
           type: string
           format: uuid
+          description: UUID unik transaksi setoran
         order_code:
           type: string
+          description: Kode unik tracking transaksi (format: PL-YYYYMMDD-XXX)
           example: PL-20260722-159
         user_id:
           type: string
           format: uuid
+          description: UUID pengguna penyetor
         station_id:
           type: string
           format: uuid
+          description: UUID stasiun lokasi penyetoran
         compartment_id:
           type: string
           format: uuid
+          description: UUID kompartemen lokasi penyetoran
         waste_type:
           type: string
           enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
+          description: Jenis kemasan yang disetor
           example: CARDBOARD
         weight_or_count:
           type: number
           format: float
+          description: Berat (kg) atau jumlah unit kemasan yang disetor
           example: 1.2
         reward_points_earned:
           type: integer
+          description: Total poin reward yang berhasil diperoleh dari setoran ini
           example: 120
         carbon_saved_kg:
           type: number
           format: float
+          description: Total emisi karbon (kg CO2e) yang dihemat dari setoran ini
           example: 1.8
         status:
           type: string
           enum: [DEPOSITED, SORTED, PICKED_UP, IN_TRANSIT, RECYCLED]
+          description: Status tracking proses daur ulang
           example: DEPOSITED
         recycled_percentage:
           type: number
           format: float
+          description: Persentase progres daur ulang (0 - 100%)
           example: 85.0
         recycle_partner:
           type: string
+          description: Mitra daur ulang pelaksana
           example: Rekosistem / Paxel
         recycle_notes:
           type: string
+          description: Catatan verifikasi fisik dari mitra daur ulang
           example: 1.2kg kardus diterima & terverifikasi.
         created_at:
           type: string
           format: date-time
+          description: Waktu transaksi dibuat
 
     RewardRedemption:
       type: object
@@ -226,26 +297,32 @@ components:
         id:
           type: string
           format: uuid
+          description: UUID transaksi penukaran poin
         user_id:
           type: string
           format: uuid
         e_wallet_provider:
           type: string
           enum: [GOPAY, OVO, DANA, LINKAJA]
+          description: Provider e-wallet tujuan penukaran
           example: GOPAY
         account_number:
           type: string
+          description: Nomor HP / akun e-wallet tujuan
           example: "081234567890"
         points_redeemed:
           type: integer
+          description: Jumlah poin yang dikonversi
           example: 500
         amount_idr:
           type: number
           format: float
-          example: 50.00
+          description: Nominal rupiah hasil konversi (1 poin = Rp 10)
+          example: 5000.00
         status:
           type: string
           enum: [PENDING, SUCCESS, FAILED]
+          description: Status pemrosesan transfer e-wallet
           example: SUCCESS
         created_at:
           type: string
@@ -263,16 +340,20 @@ components:
           nullable: true
         title:
           type: string
+          description: Judul notifikasi
           example: Setoran Berhasil!
         message:
           type: string
+          description: Isi pesan notifikasi
           example: Setoran 1.2 kg kardus berhasil. +120 poin reward.
         type:
           type: string
           enum: [DEPOSIT_SUCCESS, STATION_ALERT, RECYCLE_UPDATE, REDEMPTION]
+          description: Kategori notifikasi
           example: DEPOSIT_SUCCESS
         is_read:
           type: boolean
+          description: Status apakah notifikasi sudah dibaca pengguna
           example: false
         created_at:
           type: string
@@ -281,8 +362,12 @@ components:
   responses:
     BadRequestError:
       description: |
-        Validasi input gagal (HTTP 400 Bad Request).
-        Terjadi jika field wajib tidak diisi, format UUID salah, berat/poin <= 0, atau enum tidak sesuai.
+        ### 🔴 HTTP 400 Bad Request
+        Validasi input gagal. Terjadi apabila:
+        - Parameter wajib tidak diisi.
+        - Format `stationId`, `compartmentId`, atau `id` bukan UUID v4 yang valid.
+        - Nilai `weightOrCount` atau `pointsRedeemed` bernilai `0`, negatif, atau saniter bukan angka.
+        - Jenis kemasan `wasteType` atau `eWalletProvider` tidak sesuai daftar enum.
       content:
         application/json:
           schema:
@@ -294,8 +379,10 @@ components:
 
     UnauthorizedError:
       description: |
-        Akses ditolak / belum terautentikasi (HTTP 401 Unauthorized).
-        Terjadi jika Header `Authorization: Bearer <TOKEN>` tidak dikirim, token malformed, atau kedaluwarsa.
+        ### 🟡 HTTP 401 Unauthorized
+        Akses ditolak. Terjadi apabila:
+        - Header `Authorization: Bearer <TOKEN>` tidak disertakan dalam request.
+        - Token JWT Supabase sudah kedaluwarsa atau malformed.
       content:
         application/json:
           schema:
@@ -303,21 +390,25 @@ components:
           example:
             success: false
             message: Token tidak valid atau telah kedaluwarsa.
-            error: invalid JWT
+            error: invalid JWT: unable to parse or verify signature
 
     NotFoundError:
-      description: Resource atau data tidak ditemukan (HTTP 404 Not Found).
+      description: |
+        ### 🟠 HTTP 404 Not Found
+        Resource atau data tidak ditemukan di database.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
-            message: Data tidak ditemukan.
+            message: Data transaksi setoran tidak ditemukan.
             error: null
 
     InternalServerError:
-      description: Kesalahan internal pada server backend (HTTP 500 Internal Server Error).
+      description: |
+        ### 🚨 HTTP 500 Internal Server Error
+        Terjadi kesalahan tidak terduga pada server backend Express.
       content:
         application/json:
           schema:
@@ -330,39 +421,62 @@ components:
 paths:
   /:
     get:
-      summary: Health Check Server
-      description: Memeriksa status kesehatan server backend Express.
+      summary: Health Check Server Backend
+      description: |
+        Endpoint ini digunakan untuk memantau apakah server Express PackLoop aktif berjalan dan siap menerima request.
       responses:
         '200':
-          description: Server berjalan lancar.
+          description: Server berjalan lancar & sehat.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: PackLoop Backend API is running smoothly!
+                data:
+                  timestamp: "2026-07-24T17:20:00.000Z"
+                  environment: development
+                  documentation: http://localhost:5000/docs
 
   /api/auth/verify-token:
     post:
       tags:
         - Autentikasi
-      summary: Verifikasi Supabase Auth Token
-      description: Memverifikasi JWT token dari login Supabase (Google/Phone OTP).
+      summary: Verifikasi Supabase Auth Token (Login Mobile)
+      description: |
+        Memverifikasi JWT Access Token yang didapatkan dari Supabase Auth setelah pengguna berhasil login (via Google OAuth atau Phone OTP).
+        Jika profil pengguna belum ada di tabel `profiles`, sistem backend akan otomatis memicu pembuatan profil awal.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - token
               properties:
                 token:
                   type: string
+                  description: JWT Access Token dari Supabase Auth
                   example: eyJhbGciOiJFUzI1NiIs...
       responses:
         '200':
-          description: Token valid & user terdaftar.
+          description: Token valid dan profil pengguna dikembalikan.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Token autentikasi valid
+                data:
+                  user:
+                    id: 53c82597-7e19-4f35-affa-aac08022c634
+                    email: indy@gmail.com
+                  profile:
+                    full_name: Indy Agustin
+                    total_points: 1250
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -375,6 +489,8 @@ paths:
       tags:
         - Autentikasi
       summary: Ambil Data Sesi Pengguna Aktif
+      description: |
+        Mengembalikan data detail pengguna yang sedang login berdasarkan Header `Authorization: Bearer <TOKEN>`.
       security:
         - bearerAuth: []
       responses:
@@ -384,6 +500,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Berhasil mengambil sesi pengguna
+                data:
+                  user:
+                    id: 53c82597-7e19-4f35-affa-aac08022c634
+                    email: indy@gmail.com
+                  profile:
+                    full_name: Indy Agustin
+                    total_points: 1250
+                    total_weight_kg: 50.00
+                    total_carbon_saved_kg: 75.00
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':
@@ -394,11 +522,13 @@ paths:
       tags:
         - User Profile & Dashboard
       summary: Ambil Profil & Dasbor Pengguna
+      description: |
+        Mengambil profil lengkap pengguna beserta statistik ringkasan dasbor (total poin reward, total berat kemasan daur ulang kg, dan total emisi karbon yang berhasil dihemat).
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Data profil dan rekap dasbor.
+          description: Data profil dan statistik dasbor dikembalikan.
           content:
             application/json:
               schema:
@@ -409,6 +539,7 @@ paths:
                     example: true
                   message:
                     type: string
+                    example: Berhasil mengambil profil pengguna
                   data:
                     $ref: '#/components/schemas/Profile'
         '401':
@@ -422,6 +553,8 @@ paths:
       tags:
         - User Profile & Dashboard
       summary: Update Profil Pengguna
+      description: |
+        Memperbarui informasi nama lengkap, nomor telepon, atau URL foto avatar pengguna.
       security:
         - bearerAuth: []
       requestBody:
@@ -433,16 +566,30 @@ paths:
               properties:
                 full_name:
                   type: string
+                  description: Nama lengkap baru
                   example: Indy Agustin
                 phone_number:
                   type: string
+                  description: Nomor telepon baru
                   example: "081234567890"
                 avatar_url:
                   type: string
-                  example: https://avatar.url/image.jpg
+                  description: Link URL foto profil baru
+                  example: https://lh3.googleusercontent.com/a/ACg8ocL...
       responses:
         '200':
           description: Profil berhasil di-update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Profil berhasil diperbarui!
+                data:
+                  id: 53c82597-7e19-4f35-affa-aac08022c634
+                  full_name: Indy Agustin
+                  phone_number: "081234567890"
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -453,12 +600,22 @@ paths:
     delete:
       tags:
         - User Profile & Dashboard
-      summary: Hapus Akun & Seluruh Data Pengguna
+      summary: Hapus Akun & Seluruh Data Pengguna (Permanent Delete)
+      description: |
+        Menghapus akun pengguna dari Supabase Auth secara permanen. Seluruh data riwayat setoran, poin, dan notifikasi terkait akan terhapus bersih (*Cascade Delete*).
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Akun terhapus permanen.
+          description: Akun dan seluruh data terhapus permanen.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Akun berhasil dihapus secara permanen
+                data: null
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':
@@ -469,9 +626,11 @@ paths:
       tags:
         - Maps & Stasiun PackCycle
       summary: Ambil Daftar Seluruh Stasiun & Kapasitas Kompartemen
+      description: |
+        Digunakan oleh aplikasi Mobile (Layar Peta/Maps) untuk menampilkan lokasi seluruh PackCycle Station di peta, beserta status kapasitas kompartemennya (Kardus, Bubble Wrap, Tote Bag).
       responses:
         '200':
-          description: Daftar stasiun dan kompartemen.
+          description: Daftar stasiun dan kompartemen dikembalikan.
           content:
             application/json:
               schema:
@@ -479,6 +638,10 @@ paths:
                 properties:
                   success:
                     type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Berhasil mengambil daftar stasiun
                   data:
                     type: array
                     items:
@@ -491,16 +654,24 @@ paths:
       tags:
         - Maps & Stasiun PackCycle
       summary: Ambil Detail 1 Stasiun Spesifik
+      description: |
+        Mengambil detail informasi stasiun fisik berdasarkan UUID stasiun.
       parameters:
         - name: id
           in: path
           required: true
+          description: UUID v4 unik dari stasiun
           schema:
             type: string
             format: uuid
+            example: 11111111-1111-1111-1111-111111111111
       responses:
         '200':
-          description: Detail stasiun.
+          description: Detail stasiun dikembalikan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequestError'
         '404':
@@ -513,16 +684,24 @@ paths:
       tags:
         - Maps & Stasiun PackCycle
       summary: Ambil Kapasitas Kompartemen Real-Time Stasiun
+      description: |
+        Mengambil pantauan berat muatan saat ini, kapasitas maksimum, dan status ketersediaan kompartemen penampungan di stasiun tersebut.
       parameters:
         - name: id
           in: path
           required: true
+          description: UUID v4 unik stasiun
           schema:
             type: string
             format: uuid
+            example: 11111111-1111-1111-1111-111111111111
       responses:
         '200':
-          description: Daftar kompartemen.
+          description: Daftar status kompartemen stasiun.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequestError'
         '500':
@@ -532,7 +711,15 @@ paths:
     post:
       tags:
         - Setor Kemasan (Drop-off)
-      summary: Catat Transaksi Setor Kemasan Baru (Scan QR/IoT)
+      summary: Catat Transaksi Setor Kemasan Baru (Scan QR / IoT Drop-off)
+      description: |
+        Mencatat transaksi setoran kemasan baru saat pengguna melakukan scan QR Code di mesin PackCycle Station.
+        Sistem backend akan otomatis:
+        1. Memverifikasi kelayakan kompartemen.
+        2. Menghitung poin reward dan estimasi *carbon saved*.
+        3. Menambahkan poin langsung ke profil pengguna.
+        4. Mengupdate kapasitas kompartemen stasiun.
+        5. Membuat entri notifikasi real-time.
       security:
         - bearerAuth: []
       requestBody:
@@ -550,22 +737,41 @@ paths:
                 stationId:
                   type: string
                   format: uuid
+                  description: UUID v4 stasiun tempat penyetoran
                   example: 11111111-1111-1111-1111-111111111111
                 compartmentId:
                   type: string
                   format: uuid
+                  description: UUID v4 kompartemen tempat penyetoran
                   example: a1111111-1111-1111-1111-111111111111
                 wasteType:
                   type: string
                   enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
+                  description: Jenis kemasan (CARDBOARD, BUBBLE_WRAP, TOTE_BAG)
                   example: CARDBOARD
                 weightOrCount:
                   type: number
                   format: float
+                  description: Berat dalam kg (atau jumlah unit untuk tote bag). Harus berupa angka positif > 0.
                   example: 1.2
       responses:
         '201':
-          description: Setoran berhasil dicatat (+poin & +karbon).
+          description: Setoran berhasil dicatat, poin reward & emisi karbon terhitung instan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Setoran kemasan berhasil dicatat!
+                data:
+                  id: 99999999-9999-9999-9999-999999999999
+                  order_code: PL-20260724-888
+                  waste_type: CARDBOARD
+                  weight_or_count: 1.2
+                  reward_points_earned: 120
+                  carbon_saved_kg: 1.8
+                  status: DEPOSITED
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -577,11 +783,17 @@ paths:
       tags:
         - Setor Kemasan (Drop-off)
       summary: Ambil Riwayat Setoran Milik User
+      description: |
+        Mengambil daftar seluruh riwayat transaksi setoran kemasan milik pengguna yang sedang login.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Daftar setoran.
+          description: Daftar riwayat setoran dikembalikan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':
@@ -592,18 +804,26 @@ paths:
       tags:
         - Setor Kemasan (Drop-off)
       summary: Ambil Detail Setoran & Timeline Order Tracking
+      description: |
+        Mengambil detail transaksi setoran spesifik beserta log timeline *Order Tracking daur ulang* (Status: DEPOSITED ➔ SORTED ➔ PICKED_UP ➔ IN_TRANSIT ➔ RECYCLED).
       security:
         - bearerAuth: []
       parameters:
         - name: id
           in: path
           required: true
+          description: UUID v4 unik transaksi setoran
           schema:
             type: string
             format: uuid
+            example: 99999999-9999-9999-9999-999999999999
       responses:
         '200':
-          description: Detail setoran & log tracking.
+          description: Detail setoran dan log tracking daur ulang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -617,18 +837,29 @@ paths:
       tags:
         - Setor Kemasan (Drop-off)
       summary: Batalkan / Hapus Transaksi Setoran
+      description: |
+        Membatalkan dan menghapus transaksi setoran milik pengguna (hanya berlaku jika status masih `DEPOSITED`).
       security:
         - bearerAuth: []
       parameters:
         - name: id
           in: path
           required: true
+          description: UUID v4 unik transaksi setoran
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: Setoran dibatalkan.
+          description: Transaksi setoran berhasil dibatalkan dan dihapus.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Transaksi setoran berhasil dibatalkan dan dihapus
+                data: null
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -641,9 +872,15 @@ paths:
       tags:
         - Reward & E-Wallet
       summary: Ambil Aturan Poin & Karbon per Jenis Kemasan
+      description: |
+        Mengembalikan daftar aturan konversi poin reward dan rasio penyelamatan emisi karbon per unit/kg untuk jenis kemasan Kardus, Bubble Wrap, dan Tote Bag.
       responses:
         '200':
-          description: Aturan reward.
+          description: Aturan reward dikembalikan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -652,6 +889,9 @@ paths:
       tags:
         - Reward & E-Wallet
       summary: Konversi Poin ke E-Wallet (Min. 500 Poin)
+      description: |
+        Mengajukan penukaran poin reward pengguna menjadi saldo E-Wallet (GoPay, OVO, DANA, LinkAja).
+        Sistem backend akan memverifikasi saldo poin dan memotong poin secara otomatis.
       security:
         - bearerAuth: []
       requestBody:
@@ -668,16 +908,33 @@ paths:
                 eWalletProvider:
                   type: string
                   enum: [GOPAY, OVO, DANA, LINKAJA]
+                  description: Provider e-wallet tujuan
                   example: GOPAY
                 accountNumber:
                   type: string
+                  description: Nomor HP / akun e-wallet terdaftar
                   example: "081234567890"
                 pointsRedeemed:
                   type: integer
+                  description: Jumlah poin yang ingin ditukarkan (Minimal 500 poin). Harus angka positif > 0.
                   example: 500
       responses:
         '201':
-          description: Penukaran poin berhasil.
+          description: Permintaan penukaran poin berhasil diproses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Penukaran poin berhasil diproses!
+                data:
+                  id: 88888888-8888-8888-8888-888888888888
+                  e_wallet_provider: GOPAY
+                  account_number: "081234567890"
+                  points_redeemed: 500
+                  amount_idr: 5000
+                  status: PENDING
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -690,11 +947,17 @@ paths:
       tags:
         - Reward & E-Wallet
       summary: Ambil Riwayat Penukaran Poin User
+      description: |
+        Mengambil daftar seluruh riwayat transaksi penukaran poin ke E-Wallet milik pengguna yang sedang login.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Riwayat penukaran poin.
+          description: Riwayat penukaran poin dikembalikan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':
@@ -705,18 +968,29 @@ paths:
       tags:
         - Reward & E-Wallet
       summary: Batalkan Permintaan Penukaran Poin (Status PENDING)
+      description: |
+        Membatalkan penukaran poin yang masih berstatus `PENDING`. Poin yang sebelumnya dipotong akan otomatis dikembalikan ke saldo pengguna.
       security:
         - bearerAuth: []
       parameters:
         - name: id
           in: path
           required: true
+          description: UUID v4 transaksi penukaran poin
           schema:
             type: string
             format: uuid
       responses:
         '200':
           description: Penukaran dibatalkan & poin dikembalikan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Permintaan penukaran poin berhasil dibatalkan
+                data: null
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -729,11 +1003,17 @@ paths:
       tags:
         - Notifications
       summary: Ambil Daftar Notifikasi User
+      description: |
+        Mengambil seluruh daftar notifikasi real-time milik pengguna.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Daftar notifikasi.
+          description: Daftar notifikasi dikembalikan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':
@@ -743,11 +1023,17 @@ paths:
       tags:
         - Notifications
       summary: Bersihkan Seluruh Notifikasi User (Clear All)
+      description: |
+        Menghapus seluruh daftar notifikasi pengguna sekaligus.
       security:
         - bearerAuth: []
       responses:
         '200':
           description: Seluruh notifikasi dibersihkan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':
@@ -758,18 +1044,25 @@ paths:
       tags:
         - Notifications
       summary: Hapus 1 Notifikasi Tertentu
+      description: |
+        Menghapus 1 entri notifikasi spesifik berdasarkan UUID notifikasi.
       security:
         - bearerAuth: []
       parameters:
         - name: id
           in: path
           required: true
+          description: UUID v4 entri notifikasi
           schema:
             type: string
             format: uuid
       responses:
         '200':
           description: Notifikasi terhapus.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -782,18 +1075,25 @@ paths:
       tags:
         - Notifications
       summary: Tandai Notifikasi Sebagai Telah Dibaca
+      description: |
+        Mengubah status notifikasi spesifik menjadi sudah dibaca (`is_read = true`).
       security:
         - bearerAuth: []
       parameters:
         - name: id
           in: path
           required: true
+          description: UUID v4 entri notifikasi
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: Notifikasi telah dibaca.
+          description: Notifikasi ditandai telah dibaca.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
