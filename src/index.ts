@@ -70,11 +70,13 @@ app.use((req: Request, res: Response) => {
 // Centralized Error Handler (harus di paling bawah)
 app.use(errorHandler);
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`🚀 PackLoop Backend Server is running on port ${PORT}`);
-  console.log(`📡 Health check: http://localhost:${PORT}/`);
-  console.log(`📚 Scalar API Reference Docs: http://localhost:${PORT}/docs`);
-});
+// Start Server (hanya saat running lokal, Vercel serverless mengelola listener otomatis)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 PackLoop Backend Server is running on port ${PORT}`);
+    console.log(`📡 Health check: http://localhost:${PORT}/`);
+    console.log(`📚 Scalar API Reference Docs: http://localhost:${PORT}/docs`);
+  });
+}
 
 export default app;
