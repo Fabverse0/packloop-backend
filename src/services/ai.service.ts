@@ -16,12 +16,6 @@ export interface PackagingAnalysisResult {
   reason: string;
 }
 
-// Inisialisasi Google Gemini AI Client
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
 /**
  * Prompt terstruktur untuk analisis kemasan daur ulang.
  * Mencakup: identifikasi jenis, kelayakan fisik, hitung jumlah, dan deteksi foto layar.
@@ -64,14 +58,20 @@ export class AIService {
     imageBase64: string,
     mimeType: string
   ): Promise<PackagingAnalysisResult> {
+    const apiKey = process.env.GEMINI_API_KEY || '';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
     // Validasi API Key
-    if (!GEMINI_API_KEY) {
+    if (!apiKey) {
       throw new Error('GEMINI_API_KEY belum dikonfigurasi di file .env');
     }
 
+    // Inisialisasi Google Gemini Client secara terisolasi
+    const ai = new GoogleGenAI({ apiKey });
+
     // Kirim gambar + prompt ke Gemini Vision
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: modelName,
       contents: [
         {
           role: 'user',
