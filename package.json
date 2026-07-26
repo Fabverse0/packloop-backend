@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/Fabverse0/packloop-backend#readme",
   "dependencies": {
+    "@google/genai": "^2.13.0",
     "@scalar/express-api-reference": "^0.10.11",
     "@supabase/supabase-js": "^2.110.7",
     "cors": "^2.8.6",
