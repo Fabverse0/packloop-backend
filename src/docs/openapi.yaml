@@ -177,7 +177,7 @@ components:
           description: ID stasiun pemilik kompartemen ini
         waste_type:
           type: string
-          enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
+          enum: [TOTE_BAG, PAPER_BAG]
           description: Jenis kemasan spesifik yang ditampung kompartemen ini
           example: CARDBOARD
         current_weight_kg:
@@ -201,7 +201,7 @@ components:
       properties:
         waste_type:
           type: string
-          enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
+          enum: [TOTE_BAG, PAPER_BAG]
           description: Kode unik jenis kemasan
           example: CARDBOARD
         display_name:
@@ -251,7 +251,7 @@ components:
           description: UUID kompartemen lokasi penyetoran
         waste_type:
           type: string
-          enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
+          enum: [TOTE_BAG, PAPER_BAG]
           description: Jenis kemasan yang disetor
           example: CARDBOARD
         weight_or_count:
@@ -746,7 +746,7 @@ paths:
                   example: a1111111-1111-1111-1111-111111111111
                 wasteType:
                   type: string
-                  enum: [CARDBOARD, BUBBLE_WRAP, TOTE_BAG]
+                  enum: [TOTE_BAG, PAPER_BAG]
                   description: Jenis kemasan (CARDBOARD, BUBBLE_WRAP, TOTE_BAG)
                   example: CARDBOARD
                 weightOrCount:

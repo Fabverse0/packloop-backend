@@ -1,4 +1,4 @@
-export type WasteType = 'CARDBOARD' | 'BUBBLE_WRAP' | 'TOTE_BAG';
+export type WasteType = 'TOTE_BAG' | 'PAPER_BAG';
 export type StationStatus = 'ACTIVE' | 'MAINTENANCE' | 'OFFLINE';
 export type CompartmentStatus = 'AVAILABLE' | 'ALMOST_FULL' | 'FULL';
 export type DepositStatus = 'DEPOSITED' | 'SORTED' | 'PICKED_UP' | 'IN_TRANSIT' | 'RECYCLED';

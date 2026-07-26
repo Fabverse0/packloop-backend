@@ -3,7 +3,7 @@
  * Digunakan pada controller sebelum data dikirim ke service/database.
  */
 
-const VALID_WASTE_TYPES = ['CARDBOARD', 'BUBBLE_WRAP', 'TOTE_BAG'] as const;
+const VALID_WASTE_TYPES = ['TOTE_BAG', 'PAPER_BAG'] as const;
 const VALID_EWALLET_PROVIDERS = ['GOPAY', 'OVO', 'DANA', 'LINKAJA'] as const;
 
 /**
@@ -15,7 +15,7 @@ export function isPositiveNumber(value: unknown): value is number {
 }
 
 /**
- * Memeriksa apakah jenis kemasan valid (CARDBOARD, BUBBLE_WRAP, TOTE_BAG).
+ * Memeriksa apakah jenis kemasan valid (TOTE_BAG, PAPER_BAG).
  */
 export function isValidWasteType(type: unknown): boolean {
   return typeof type === 'string' && VALID_WASTE_TYPES.includes(type as any);
