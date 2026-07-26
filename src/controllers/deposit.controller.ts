@@ -28,7 +28,7 @@ export class DepositController {
 
       // Validasi jenis kemasan
       if (!isValidWasteType(wasteType)) {
-        return sendError(res, 'Jenis kemasan tidak valid. Pilih: CARDBOARD, BUBBLE_WRAP, atau TOTE_BAG', null, 400);
+        return sendError(res, 'Jenis kemasan tidak valid. Pilih: TOTE_BAG atau PAPER_BAG', null, 400);
       }
 
       // Validasi berat/jumlah harus angka positif (> 0)

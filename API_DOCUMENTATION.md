@@ -140,7 +140,7 @@ Mencatat transaksi penyetoran kemasan baru saat user scan QR di mesin stasiun.
     "weightOrCount": 1.2
   }
   ```
-  *(Catatan: `wasteType` yang valid: `CARDBOARD`, `BUBBLE_WRAP`, `TOTE_BAG`. `weightOrCount` harus angka positif > 0)*.
+  *(Catatan: `wasteType` yang valid: `TOTE_BAG`, `PAPER_BAG`. `weightOrCount` harus angka positif > 0)*.
 
 * **Response Sukses (`201 Created`)**:
   ```json

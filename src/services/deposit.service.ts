@@ -24,23 +24,9 @@ export class DepositService {
       throw new Error(`Konfigurasi untuk jenis kemasan ${wasteType} tidak ditemukan`);
     }
 
-    // 2. Hitung Poin Reward & Carbon Saved
-    let rewardPoints = 0;
-    let carbonSaved = 0;
-
-    if (wasteType === 'CARDBOARD') {
-      // 10 poin per 100g = 100 poin per kg
-      rewardPoints = Math.round(weightOrCount * 100);
-      carbonSaved = Number((weightOrCount * 1.5).toFixed(2));
-    } else if (wasteType === 'BUBBLE_WRAP') {
-      // 15 poin per 100g = 150 poin per kg
-      rewardPoints = Math.round(weightOrCount * 150);
-      carbonSaved = Number((weightOrCount * 2.0).toFixed(2));
-    } else if (wasteType === 'TOTE_BAG') {
-      // 50 poin per 1 tote bag
-      rewardPoints = Math.round(weightOrCount * 50);
-      carbonSaved = Number((weightOrCount * 0.5).toFixed(2));
-    }
+    // 2. Hitung Poin Reward & Carbon Saved (Berdasarkan Konfigurasi Master)
+    const rewardPoints = Math.round(weightOrCount * config.reward_points_per_unit);
+    const carbonSaved = Number((weightOrCount * config.carbon_saved_per_unit_kg).toFixed(2));
 
     // 3. Generate Kode Order Unik (misal: PL-20260721-893)
     const now = new Date();
