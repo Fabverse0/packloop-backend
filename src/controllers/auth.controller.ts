@@ -24,11 +24,15 @@ export class AuthController {
    */
   static async verifyToken(req: Request, res: Response): Promise<Response> {
     try {
-      let token = req.body?.token;
-
-      // Fallback: ambil dari Authorization Header jika tidak ada di req.body
-      if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+      // Prioritas 1: Authorization Header (dari Scalar UI / Postman / Mobile App)
+      let token: string | undefined;
+      if (req.headers.authorization?.startsWith('Bearer ')) {
         token = req.headers.authorization.split(' ')[1];
+      }
+
+      // Prioritas 2: Body token (fallback untuk kasus tertentu)
+      if (!token && req.body?.token) {
+        token = req.body.token;
       }
 
       if (!token) {
