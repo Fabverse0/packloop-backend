@@ -24,10 +24,15 @@ export class AuthController {
    */
   static async verifyToken(req: Request, res: Response): Promise<Response> {
     try {
-      const { token } = req.body;
+      let token = req.body?.token;
+
+      // Fallback: ambil dari Authorization Header jika tidak ada di req.body
+      if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+        token = req.headers.authorization.split(' ')[1];
+      }
 
       if (!token) {
-        return sendError(res, 'Field token wajib diisi.', null, 400);
+        return sendError(res, 'Field token wajib diisi atau sertakan di Authorization Header.', null, 400);
       }
 
       const { user, error } = await AuthService.verifyAccessToken(token);
