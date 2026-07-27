@@ -24,10 +24,19 @@ export class AuthController {
    */
   static async verifyToken(req: Request, res: Response): Promise<Response> {
     try {
-      const { token } = req.body;
+      // Prioritas 1: Authorization Header (dari Scalar UI / Postman / Mobile App)
+      let token: string | undefined;
+      if (req.headers.authorization?.startsWith('Bearer ')) {
+        token = req.headers.authorization.split(' ')[1];
+      }
+
+      // Prioritas 2: Body token (fallback untuk kasus tertentu)
+      if (!token && req.body?.token) {
+        token = req.body.token;
+      }
 
       if (!token) {
-        return sendError(res, 'Field token wajib diisi.', null, 400);
+        return sendError(res, 'Field token wajib diisi atau sertakan di Authorization Header.', null, 400);
       }
 
       const { user, error } = await AuthService.verifyAccessToken(token);

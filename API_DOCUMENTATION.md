@@ -129,6 +129,35 @@ Cek status muatan kompartemen di stasiun (Kardus, Bubble Wrap, Tote Bag).
 
 ## ♻️ 4. Setor Kemasan / Drop-off (`/api/deposits`)
 
+### `POST /api/deposits/analyze` (🔒 Protected) — 🤖 AI Scan Packaging
+Menganalisis foto kemasan menggunakan **Google Gemini 2.5 Flash Vision AI**.
+AI secara otomatis mengidentifikasi jenis kemasan, kelayakan fisik, dan menghitung jumlah barang.
+* **Body Request**:
+  ```json
+  {
+    "imageBase64": "/9j/4AAQSkZJRgABAQ...",
+    "mimeType": "image/jpeg"
+  }
+  ```
+  *(Format gambar yang didukung: `image/jpeg`, `image/png`, `image/webp`. Maks 5MB)*.
+
+* **Response Sukses (`200 OK`)**:
+  ```json
+  {
+    "success": true,
+    "message": "Analisis kemasan berhasil",
+    "data": {
+      "isEligible": true,
+      "status": "LAYAK",
+      "wasteType": "TOTE_BAG",
+      "quantity": 2,
+      "confidenceScore": 0.96,
+      "isScreenPhoto": false,
+      "reason": "Terdeteksi 2 tote bag kain dalam kondisi bersih dan utuh"
+    }
+  }
+  ```
+
 ### `POST /api/deposits` (🔒 Protected)
 Mencatat transaksi penyetoran kemasan baru saat user scan QR di mesin stasiun.
 * **Body Request**:

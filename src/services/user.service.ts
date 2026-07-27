@@ -52,8 +52,11 @@ export class UserService {
       .delete()
       .eq('id', userId);
 
-    if (authError && profileError) {
-      throw new Error(authError.message || profileError.message);
+    if (authError) {
+      throw new Error(`Gagal menghapus autentikasi akun: ${authError.message}`);
+    }
+    if (profileError) {
+      throw new Error(`Gagal menghapus profil pengguna: ${profileError.message}`);
     }
 
     return true;
