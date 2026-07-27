@@ -41,7 +41,6 @@ export class DepositController {
 
       return sendSuccess(res, 'Analisis kemasan berhasil', analysisResult);
     } catch (error: any) {
-      console.error('❌ [analyzePackaging Error]:', error);
       return sendError(res, error.message || 'Gagal menganalisis foto kemasan', null, 500);
     }
   }

@@ -54,7 +54,7 @@ export class RewardService {
           account_number: accountNumber,
           points_redeemed: pointsRedeemed,
           amount_idr: amountIdr,
-          status: 'SUCCESS',
+          status: 'PENDING',
         },
       ])
       .select()

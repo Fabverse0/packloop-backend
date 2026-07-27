@@ -14,7 +14,7 @@ export class AuthService {
     const cleanToken = token.replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim();
 
     // ⚡ DEV SHORTCUT: Jika mengetik "test" atau "dev-token" saat pengujian lokal
-    if (cleanToken === 'test' || cleanToken === 'dev-token' || cleanToken === 'packloop') {
+    if (process.env.NODE_ENV !== 'production' && (cleanToken === 'test' || cleanToken === 'dev-token' || cleanToken === 'packloop')) {
       const { data: adminData } = await supabaseAdmin.auth.admin.getUserById('a9cf726f-d58a-4d5d-9ec7-8b7ce9615eac');
       if (adminData?.user) {
         return { user: adminData.user, error: null };
