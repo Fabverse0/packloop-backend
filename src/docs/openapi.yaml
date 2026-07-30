@@ -27,6 +27,8 @@ info:
     url: https://github.com/Fabverse0/packloop-backend
 
 servers:
+  - url: https://packloop-backend-beryl.vercel.app
+    description: Server Produksi (Vercel Cloud)
   - url: http://localhost:5000
     description: Server Lokal (Development)
 
