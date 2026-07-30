@@ -2,7 +2,15 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { apiReference } from '@scalar/express-api-reference';
-import { openapiSpec } from './config/openapi.js';
+import { generateOpenAPISpec } from './docs/openapi-registry.js';
+
+// Import skema agar otomatis teregistrasi ke OpenAPI Registry
+import './schemas/auth.schema.js';
+import './schemas/user.schema.js';
+import './schemas/station.schema.js';
+import './schemas/deposit.schema.js';
+import './schemas/reward.schema.js';
+import './schemas/notification.schema.js';
 
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
@@ -20,10 +28,18 @@ const PORT = process.env.PORT || 5000;
 
 // Middlewares
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Scalar API Reference OpenAPI Documentation
+// Generate OpenAPI spec sekali saat server start (cached)
+const openapiSpec = generateOpenAPISpec();
+
+// Raw OpenAPI JSON Specification Endpoint (untuk Postman Import & Code Generator)
+app.get(['/docs/openapi.json', '/openapi.json'], (_req: Request, res: Response) => {
+  return res.json(openapiSpec);
+});
+
+// Scalar API Reference OpenAPI Documentation UI (Auto-Generated)
 app.use(
   '/docs',
   apiReference({
@@ -47,10 +63,15 @@ app.use(
 
 // Health check endpoint
 app.get('/', (req: Request, res: Response) => {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.get('host');
+  const baseUrl = `${protocol}://${host}`;
+
   return sendSuccess(res, 'PackLoop Backend API is running smoothly!', {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    documentation: `http://localhost:${PORT}/docs`,
+    documentation: `${baseUrl}/docs`,
+    openapi_spec: `${baseUrl}/docs/openapi.json`,
   });
 });
 
@@ -76,6 +97,7 @@ if (!process.env.VERCEL) {
     console.log(`🚀 PackLoop Backend Server is running on port ${PORT}`);
     console.log(`📡 Health check: http://localhost:${PORT}/`);
     console.log(`📚 Scalar API Reference Docs: http://localhost:${PORT}/docs`);
+    console.log(`📄 OpenAPI JSON Spec: http://localhost:${PORT}/docs/openapi.json`);
   });
 }
 
