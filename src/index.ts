@@ -23,6 +23,11 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
+// Raw OpenAPI JSON Specification Endpoint (untuk Postman Import & Code Generator)
+app.get(['/docs/openapi.json', '/openapi.json'], (_req: Request, res: Response) => {
+  return res.json(openapiSpec);
+});
+
 // Scalar API Reference OpenAPI Documentation
 app.use(
   '/docs',
@@ -47,10 +52,14 @@ app.use(
 
 // Health check endpoint
 app.get('/', (req: Request, res: Response) => {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.get('host');
+  const baseUrl = `${protocol}://${host}`;
+
   return sendSuccess(res, 'PackLoop Backend API is running smoothly!', {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    documentation: `http://localhost:${PORT}/docs`,
+    documentation: `${baseUrl}/docs`,
   });
 });
 
