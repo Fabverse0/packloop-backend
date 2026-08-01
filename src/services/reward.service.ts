@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase.js';
 import { EWalletProvider } from '../types/database.types.js';
+import { MidtransService } from './midtrans.service.js';
 
 export interface RedeemInput {
   userId: string;
@@ -29,7 +30,7 @@ export class RewardService {
     // 2. Cek saldo poin pengguna saat ini
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('total_points')
+      .select('total_points, full_name')
       .eq('id', userId)
       .single();
 
@@ -44,7 +45,10 @@ export class RewardService {
     // 3. Konversi Poin ke IDR: 100 poin = Rp10 -> 1 poin = Rp 0.10
     const amountIdr = Number((pointsRedeemed * 0.10).toFixed(2));
 
-    // 4. Catat Penukaran (Trigger otomatis memotong poin user & mengirim notifikasi)
+    // 4. Generate Order ID unik untuk Midtrans
+    const midtransOrderId = `PKL-REDEEM-${userId.substring(0, 8)}-${Date.now()}`;
+
+    // 5. Catat Penukaran ke Supabase DB
     const { data: redemption, error: redeemError } = await supabase
       .from('reward_redemptions')
       .insert([
@@ -55,6 +59,7 @@ export class RewardService {
           points_redeemed: pointsRedeemed,
           amount_idr: amountIdr,
           status: 'PENDING',
+          midtrans_order_id: midtransOrderId,
         },
       ])
       .select()
@@ -62,7 +67,46 @@ export class RewardService {
 
     if (redeemError) throw new Error(redeemError.message);
 
-    return redemption;
+    // 6. Proses Pencairan Saldo via Midtrans Iris Payout API
+    //    Saldo Rupiah dikirim langsung ke nomor E-Wallet pengguna secara otomatis.
+    let payoutResult: { order_id: string; status: string; message: string } = {
+      order_id: midtransOrderId,
+      status: 'skipped',
+      message: 'Midtrans Iris Payout tidak dieksekusi (server key tidak dikonfigurasi).',
+    };
+
+    try {
+      const irisResult = await MidtransService.createPayout({
+        referenceNo: midtransOrderId,
+        beneficiaryName: profile.full_name ?? 'PackLoop User',
+        beneficiaryAccount: accountNumber,
+        eWalletProvider: eWalletProvider,
+        amountIdr: amountIdr,
+      });
+
+      payoutResult = {
+        order_id: midtransOrderId,
+        status: irisResult.status,
+        message: irisResult.message,
+      };
+
+      // Jika payout langsung completed/queued, update status redemption di DB
+      if (irisResult.status === 'completed' || irisResult.status === 'queued' || irisResult.status === 'processed') {
+        const finalStatus = irisResult.status === 'completed' ? 'SUCCESS' : 'PENDING';
+        await supabase
+          .from('reward_redemptions')
+          .update({ status: finalStatus })
+          .eq('midtrans_order_id', midtransOrderId);
+      }
+    } catch (payoutError) {
+      console.warn('⚠️ Iris Payout notice:', (payoutError as Error).message);
+      payoutResult.message = (payoutError as Error).message;
+    }
+
+    return {
+      ...redemption,
+      payout: payoutResult,
+    };
   }
 
   static async getUserRedemptions(userId: string) {

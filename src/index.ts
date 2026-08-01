@@ -11,6 +11,7 @@ import './schemas/station.schema.js';
 import './schemas/deposit.schema.js';
 import './schemas/reward.schema.js';
 import './schemas/notification.schema.js';
+import './schemas/midtrans.schema.js';
 
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
@@ -18,6 +19,7 @@ import stationRoutes from './routes/station.routes.js';
 import depositRoutes from './routes/deposit.routes.js';
 import rewardRoutes from './routes/reward.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import midtransRoutes from './routes/midtrans.routes.js';
 import { sendSuccess, sendError } from './utils/response.js';
 import { errorHandler } from './middleware/error.middleware.js';
 
@@ -82,6 +84,7 @@ app.use('/api/stations', stationRoutes);
 app.use('/api/deposits', depositRoutes);
 app.use('/api/rewards', rewardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/webhooks/midtrans', midtransRoutes);
 
 // 404 Not Found Handler
 app.use((req: Request, res: Response) => {

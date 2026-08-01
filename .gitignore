@@ -10,4 +10,4 @@ build/
 coverage/
 .vscode/
 .agents
-scratch/
+scratch

@@ -15,7 +15,8 @@ export class AuthService {
 
     // ⚡ DEV SHORTCUT: Jika mengetik "test" atau "dev-token" saat pengujian lokal
     if (process.env.NODE_ENV !== 'production' && (cleanToken === 'test' || cleanToken === 'dev-token' || cleanToken === 'packloop')) {
-      const { data: adminData } = await supabaseAdmin.auth.admin.getUserById('a9cf726f-d58a-4d5d-9ec7-8b7ce9615eac');
+      const devUserId = 'a9cf726f-d58a-4d5d-9ec7-8b7ce9615eac'; // User Fabian di Supabase
+      const { data: adminData } = await supabaseAdmin.auth.admin.getUserById(devUserId);
       if (adminData?.user) {
         return { user: adminData.user, error: null };
       }
