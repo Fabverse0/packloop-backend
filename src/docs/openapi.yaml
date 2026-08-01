@@ -27,6 +27,8 @@ info:
     url: https://github.com/Fabverse0/packloop-backend
 
 servers:
+  - url: https://packloop-backend-beryl.vercel.app
+    description: Server Produksi (Vercel Cloud)
   - url: http://localhost:5000
     description: Server Lokal (Development)
 
@@ -704,6 +706,68 @@ paths:
                 $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/deposits/analyze:
+    post:
+      tags:
+        - Setor Kemasan (Drop-off)
+      summary: AI Scan Analisis Foto Kemasan (Gemini Vision)
+      description: |
+        Menganalisis foto kemasan daur ulang menggunakan **Google Gemini 2.5 Flash Vision AI**.
+
+        AI akan secara otomatis:
+        1. Mengidentifikasi jenis kemasan (`TOTE_BAG` atau `PAPER_BAG`).
+        2. Menilai kelayakan fisik (`LAYAK` vs `TIDAK_LAYAK`) beserta alasan.
+        3. Menghitung jumlah barang (*Visual Quantity Counting*) per unit/pcs.
+        4. Mendeteksi foto layar monitor (`isScreenPhoto`).
+        5. Memberikan skor kepastian (`confidenceScore`).
+
+        **7 Sistem Pengaman Anti-Kecurangan** diterapkan secara otomatis di backend.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - imageBase64
+                - mimeType
+              properties:
+                imageBase64:
+                  type: string
+                  description: String Base64 dari foto kemasan (tanpa prefix "data:image/...;base64,"). Maksimal 5MB.
+                  example: "/9j/4AAQSkZJRgABAQ..."
+                mimeType:
+                  type: string
+                  enum: [image/jpeg, image/png, image/webp]
+                  description: Tipe MIME gambar
+                  example: image/jpeg
+      responses:
+        '200':
+          description: Analisis kemasan berhasil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                message: Analisis kemasan berhasil
+                data:
+                  isEligible: true
+                  status: LAYAK
+                  wasteType: TOTE_BAG
+                  quantity: 2
+                  confidenceScore: 0.96
+                  isScreenPhoto: false
+                  reason: "Terdeteksi 2 tote bag kain dalam kondisi bersih dan utuh"
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '500':
           $ref: '#/components/responses/InternalServerError'
 

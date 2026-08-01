@@ -1,9 +1,50 @@
 import { Request, Response } from 'express';
 import { DepositService } from '../services/deposit.service.js';
+import { AIService } from '../services/ai.service.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { isPositiveNumber, isValidWasteType, isValidUUID } from '../utils/validation.js';
 
 export class DepositController {
+  /**
+   * POST /api/deposits/analyze
+   * Menganalisis foto kemasan menggunakan Google Gemini Vision AI.
+   * Mengembalikan jenis kemasan, kelayakan fisik, jumlah barang, dan skor kepastian.
+   */
+  static async analyzePackaging(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return sendError(res, 'User tidak terautentikasi', null, 401);
+      }
+
+      const { imageBase64, mimeType } = req.body;
+
+      // Validasi kelengkapan field
+      if (!imageBase64 || !mimeType) {
+        return sendError(res, 'Field imageBase64 dan mimeType wajib diisi', null, 400);
+      }
+
+      // Validasi mimeType (hanya gambar yang diperbolehkan)
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedMimeTypes.includes(mimeType)) {
+        return sendError(res, 'Format gambar tidak didukung. Gunakan JPEG, PNG, atau WebP', null, 400);
+      }
+
+      // Validasi ukuran Base64 (maks ~5MB = ~6.67MB Base64)
+      const maxBase64Length = 7 * 1024 * 1024; // ~7MB Base64 string
+      if (imageBase64.length > maxBase64Length) {
+        return sendError(res, 'Ukuran gambar terlalu besar. Maksimal 5MB', null, 400);
+      }
+
+      // Panggil AI Service Gemini Vision
+      const analysisResult = await AIService.analyzePackagingImage(imageBase64, mimeType);
+
+      return sendSuccess(res, 'Analisis kemasan berhasil', analysisResult);
+    } catch (error: any) {
+      return sendError(res, error.message || 'Gagal menganalisis foto kemasan', null, 500);
+    }
+  }
+
   static async createDeposit(req: Request, res: Response) {
     try {
       const userId = req.user?.id;

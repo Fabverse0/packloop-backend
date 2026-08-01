@@ -6,6 +6,9 @@ const router = Router();
 
 router.use(requireAuth);
 
+// POST /api/deposits/analyze - AI Scan Packaging (Gemini Vision)
+router.post('/analyze', DepositController.analyzePackaging);
+
 router.post('/', DepositController.createDeposit);
 router.get('/', DepositController.getUserDeposits);
 router.get('/:id', DepositController.getDepositById);

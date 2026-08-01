@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabase } from '../config/supabase.js';
+import { AuthService } from '../services/auth.service.js';
 import { sendError } from '../utils/response.js';
 
 export const requireAuth = async (
@@ -19,9 +19,9 @@ export const requireAuth = async (
       );
     }
 
-    const token = authHeader.split(' ')[1];
+    const rawToken = authHeader.split(' ')[1];
 
-    if (!token) {
+    if (!rawToken) {
       return sendError(
         res,
         'Format token tidak valid.',
@@ -30,8 +30,8 @@ export const requireAuth = async (
       );
     }
 
-    // Verify JWT token with Supabase Auth
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    // Verify access token using smart AuthService
+    const { user, error } = await AuthService.verifyAccessToken(rawToken);
 
     if (error || !user) {
       return sendError(

@@ -80,6 +80,26 @@ export class DepositService {
         .eq('id', compartmentId);
     }
 
+    // 6. Update Stats pada Profil User (Poin + Berat + Karbon)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('total_points, total_weight_kg, total_carbon_saved_kg')
+      .eq('id', userId)
+      .single();
+
+    if (profile) {
+      const weightAdded = wasteType === 'TOTE_BAG' ? weightOrCount * 0.2 : weightOrCount;
+      await supabase
+        .from('profiles')
+        .update({
+          total_points: profile.total_points + rewardPoints,
+          total_weight_kg: Number((profile.total_weight_kg + weightAdded).toFixed(2)),
+          total_carbon_saved_kg: Number((profile.total_carbon_saved_kg + carbonSaved).toFixed(2)),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+    }
+
     return deposit;
   }
 
