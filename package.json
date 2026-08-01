@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "PackLoop Backend Core API",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc && node -e \"import('fs').then(fs => { fs.mkdirSync('dist/docs', {recursive:true}); fs.copyFileSync('src/docs/openapi.yaml', 'dist/docs/openapi.yaml'); })\"",
-    "start": "node dist/index.js"
+    "build": "tsc",
+    "start": "node dist/src/index.js"
   },
   "repository": {
     "type": "git",
@@ -21,19 +21,19 @@
   },
   "homepage": "https://github.com/Fabverse0/packloop-backend#readme",
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
     "@google/genai": "^2.13.0",
     "@scalar/express-api-reference": "^0.10.11",
     "@supabase/supabase-js": "^2.110.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "yamljs": "^0.3.0"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.1",
-    "@types/yamljs": "^0.2.34",
     "@vercel/node": "^5.8.27",
     "tsx": "^4.23.1",
     "typescript": "^5.9.3"
