@@ -22,9 +22,9 @@ export class RewardService {
   static async redeemPoints(input: RedeemInput) {
     const { userId, eWalletProvider, accountNumber, pointsRedeemed } = input;
 
-    // 1. Syarat minimal 500 poin
-    if (pointsRedeemed < 500) {
-      throw new Error('Penukaran poin minimal 500 poin (= Rp50)');
+    // 1. Syarat minimal 10 poin
+    if (pointsRedeemed < 10) {
+      throw new Error('Penukaran poin minimal 10 poin (= Rp1)');
     }
 
     // 2. Cek saldo poin pengguna saat ini

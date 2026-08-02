@@ -25,7 +25,7 @@ export const RedeemPointsSchema = z
     pointsRedeemed: z
       .number({ error: 'pointsRedeemed harus berupa angka' })
       .int('pointsRedeemed harus bilangan bulat')
-      .min(500, 'Penukaran poin minimal 500 poin (= Rp50)')
+      .min(10, 'Penukaran poin minimal 10 poin (= Rp1)')
       .openapi({ example: 1000 }),
   })
   .openapi('RedeemPointsRequest');
