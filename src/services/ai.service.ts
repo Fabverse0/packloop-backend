@@ -59,10 +59,7 @@ export class AIService {
     mimeType: string
   ): Promise<PackagingAnalysisResult> {
     const apiKey = process.env.GEMINI_API_KEY || '';
-    let modelName = process.env.GEMINI_MODEL || 'gemini-flash-latest';
-    if (modelName === 'gemini-2.5-flash') {
-      modelName = 'gemini-flash-latest';
-    }
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
     // Validasi API Key
     if (!apiKey) {
