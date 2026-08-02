@@ -90,13 +90,17 @@ export class RewardService {
         message: irisResult.message,
       };
 
-      // Jika payout langsung completed/queued, update status redemption di DB
+      // Jika payout completed/queued/processed, di Sandbox mode otomatis di-set ke SUCCESS untuk kemudahan demo
       if (irisResult.status === 'completed' || irisResult.status === 'queued' || irisResult.status === 'processed') {
-        const finalStatus = irisResult.status === 'completed' ? 'SUCCESS' : 'PENDING';
+        const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+        const finalStatus = (!isProduction || irisResult.status === 'completed') ? 'SUCCESS' : 'PENDING';
+        
         await supabase
           .from('reward_redemptions')
           .update({ status: finalStatus })
           .eq('midtrans_order_id', midtransOrderId);
+
+        redemption.status = finalStatus;
       }
     } catch (payoutError) {
       console.warn('⚠️ Iris Payout notice:', (payoutError as Error).message);

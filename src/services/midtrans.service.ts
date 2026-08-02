@@ -108,20 +108,20 @@ export class MidtransService {
       }
 
       // Jika response HTML/404 (karena Iris belum diajukan di Portal Sandbox)
-      // Di Sandbox Mode: Simulasikan Payout Sukses
+      // Di Sandbox Mode: Simulasikan Payout Sukses Instant
       console.log(`ℹ️ [Sandbox Iris Simulation] Memproses pencairan ${amountIdr} IDR ke ${eWalletProvider} (${beneficiaryAccount})...`);
       return {
         referenceNo,
-        status: 'queued',
-        message: `[Sandbox Mode] Pencairan Rp${amountIdr.toLocaleString('id-ID')} ke ${eWalletProvider} (${beneficiaryAccount}) berhasil dikirim ke antrean pencairan.`,
+        status: 'completed',
+        message: `[Sandbox Mode] Pencairan Rp${amountIdr.toLocaleString('id-ID')} ke ${eWalletProvider} (${beneficiaryAccount}) berhasil diproses (SUCCESS).`,
       };
     } catch (err) {
       // Sandbox Fallback
       console.log(`ℹ️ [Sandbox Iris Fallback] Pencairan ${amountIdr} IDR diproses dalam mode simulasi.`);
       return {
         referenceNo,
-        status: 'queued',
-        message: `[Sandbox Mode] Pencairan Rp${amountIdr.toLocaleString('id-ID')} ke ${eWalletProvider} (${beneficiaryAccount}) berhasil diproses dalam mode simulasi.`,
+        status: 'completed',
+        message: `[Sandbox Mode] Pencairan Rp${amountIdr.toLocaleString('id-ID')} ke ${eWalletProvider} (${beneficiaryAccount}) berhasil diproses dalam mode simulasi (SUCCESS).`,
       };
     }
   }
