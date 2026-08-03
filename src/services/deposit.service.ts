@@ -196,7 +196,9 @@ export class DepositService {
 
     if (deleteError) throw new Error(deleteError.message);
 
-    // 3. Penyesuaian poin pada profil user
+    // 3. Penyesuaian poin & berat pada profil user
+    const wt = deposit.waste_type === 'TOTE_BAG' ? deposit.weight_or_count * 0.20 : deposit.weight_or_count * 0.05;
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('total_points, total_weight_kg, total_carbon_saved_kg')
@@ -204,7 +206,6 @@ export class DepositService {
       .single();
 
     if (profile) {
-      const wt = deposit.waste_type === 'TOTE_BAG' ? deposit.weight_or_count * 0.2 : deposit.weight_or_count;
       await supabase
         .from('profiles')
         .update({
@@ -213,6 +214,33 @@ export class DepositService {
           total_carbon_saved_kg: Math.max(0, Number((profile.total_carbon_saved_kg - deposit.carbon_saved_kg).toFixed(2))),
         })
         .eq('id', userId);
+    }
+
+    // 4. Kembalikan kapasitas kompartemen stasiun
+    const { data: comp } = await supabase
+      .from('compartments')
+      .select('current_weight_kg, max_capacity_kg')
+      .eq('id', deposit.compartment_id)
+      .single();
+
+    if (comp) {
+      const restoredWeight = Math.max(0, Number((comp.current_weight_kg - wt).toFixed(2)));
+      const fillPercentage = (restoredWeight / comp.max_capacity_kg) * 100;
+      let restoredStatus: 'AVAILABLE' | 'ALMOST_FULL' | 'FULL' = 'AVAILABLE';
+      if (fillPercentage >= 100) {
+        restoredStatus = 'FULL';
+      } else if (fillPercentage >= 75) {
+        restoredStatus = 'ALMOST_FULL';
+      }
+
+      await supabase
+        .from('compartments')
+        .update({
+          current_weight_kg: restoredWeight,
+          status: restoredStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', deposit.compartment_id);
     }
 
     return true;
