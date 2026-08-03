@@ -14,6 +14,9 @@ export interface PackagingAnalysisResult {
   confidenceScore: number;
   isScreenPhoto: boolean;
   reason: string;
+  estimatedWeightKg: number;
+  estimatedPoints: number;
+  estimatedCarbonSavedKg: number;
 }
 
 /**
@@ -130,6 +133,23 @@ export class AIService {
       analysisResult.status = 'TIDAK_LAYAK';
       analysisResult.wasteType = 'UNKNOWN';
       analysisResult.reason = 'Objek pada foto bukan tote bag atau paper bag. Hanya kemasan tote bag dan paper bag yang dapat didaur ulang melalui PackLoop.';
+    }
+
+    // === HITUNG ESTIMASI BERAT, POIN, DAN KARBON SAVED REALISTIS ===
+    // Tote Bag = 0.20 kg (200 gram) / unit
+    // Paper Bag = 0.05 kg (50 gram) / unit
+    if (analysisResult.wasteType === 'TOTE_BAG') {
+      analysisResult.estimatedWeightKg = Number((analysisResult.quantity * 0.20).toFixed(2));
+      analysisResult.estimatedPoints = analysisResult.quantity * 50;
+      analysisResult.estimatedCarbonSavedKg = Number((analysisResult.quantity * 0.50).toFixed(2));
+    } else if (analysisResult.wasteType === 'PAPER_BAG') {
+      analysisResult.estimatedWeightKg = Number((analysisResult.quantity * 0.05).toFixed(2));
+      analysisResult.estimatedPoints = analysisResult.quantity * 30;
+      analysisResult.estimatedCarbonSavedKg = Number((analysisResult.quantity * 0.30).toFixed(2));
+    } else {
+      analysisResult.estimatedWeightKg = 0;
+      analysisResult.estimatedPoints = 0;
+      analysisResult.estimatedCarbonSavedKg = 0;
     }
 
     return analysisResult;
