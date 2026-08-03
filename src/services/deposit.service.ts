@@ -13,6 +13,46 @@ export class DepositService {
   static async createDeposit(input: CreateDepositInput) {
     const { userId, stationId, compartmentId, wasteType, weightOrCount } = input;
 
+    // ── PROTEKSI 4: Cek Keaktifan Stasiun Fisik (ACTIVE) ────────────────────
+    const { data: station, error: stationError } = await supabase
+      .from('stations')
+      .select('id, name, status')
+      .eq('id', stationId)
+      .single();
+
+    if (stationError || !station) {
+      throw new Error('Stasiun tujuan tidak ditemukan');
+    }
+
+    if (station.status !== 'ACTIVE') {
+      throw new Error(`Stasiun ${station.name} saat ini sedang tidak aktif (${station.status}).`);
+    }
+
+    // ── PROTEKSI 1 & 2: Cek Status Kompartemen & Sisa Kapasitas ─────────────
+    const { data: compartment, error: compError } = await supabase
+      .from('compartments')
+      .select('*')
+      .eq('id', compartmentId)
+      .single();
+
+    if (compError || !compartment) {
+      throw new Error('Kompartemen stasiun tidak ditemukan');
+    }
+
+    // Proteksi 1: Tolak jika status kompartemen sudah FULL
+    if (compartment.status === 'FULL') {
+      throw new Error(`Kompartemen pada stasiun ${station.name} sudah penuh! Silakan pilih stasiun lain.`);
+    }
+
+    // Proteksi 2: Hitung berat setoran baru & cek over-capacity
+    const weightPerUnit = wasteType === 'TOTE_BAG' ? 0.20 : 0.05;
+    const estimatedDepositWeight = Number((weightOrCount * weightPerUnit).toFixed(2));
+    const newTotalWeight = Number((compartment.current_weight_kg + estimatedDepositWeight).toFixed(2));
+
+    if (newTotalWeight > compartment.max_capacity_kg) {
+      throw new Error(`Sisa kapasitas kompartemen pada stasiun ${station.name} tidak mencukupi untuk menerima setoran ini.`);
+    }
+
     // 1. Ambil aturan poin & karbon dari waste_type_configs
     const { data: config, error: configError } = await supabase
       .from('waste_type_configs')
@@ -61,24 +101,23 @@ export class DepositService {
 
     if (depositError) throw new Error(depositError.message);
 
-    // 5. Update Kapasitas Terisi di Kompartemen
-    const { data: comp } = await supabase
-      .from('compartments')
-      .select('current_weight_kg, max_capacity_kg')
-      .eq('id', compartmentId)
-      .single();
-
-    if (comp) {
-      const added = wasteType === 'TOTE_BAG' ? weightOrCount * 0.2 : weightOrCount;
-      const newWeight = Number((comp.current_weight_kg + added).toFixed(2));
-      const maxCap = comp.max_capacity_kg || 150.00;
-      const status = newWeight >= maxCap ? 'FULL' : newWeight >= (maxCap * 0.8) ? 'ALMOST_FULL' : 'AVAILABLE';
-
-      await supabase
-        .from('compartments')
-        .update({ current_weight_kg: newWeight, status, updated_at: new Date().toISOString() })
-        .eq('id', compartmentId);
+    // 5. Update berat & status kompartemen stasiun otomatis
+    const fillPercentage = (newTotalWeight / compartment.max_capacity_kg) * 100;
+    let newCompStatus: 'AVAILABLE' | 'ALMOST_FULL' | 'FULL' = 'AVAILABLE';
+    if (fillPercentage >= 100) {
+      newCompStatus = 'FULL';
+    } else if (fillPercentage >= 75) {
+      newCompStatus = 'ALMOST_FULL';
     }
+
+    await supabase
+      .from('compartments')
+      .update({
+        current_weight_kg: newTotalWeight,
+        status: newCompStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', compartmentId);
 
     // 6. Update Stats pada Profil User (Poin + Berat + Karbon)
     const { data: profile } = await supabase
@@ -88,14 +127,13 @@ export class DepositService {
       .single();
 
     if (profile) {
-      const weightAdded = wasteType === 'TOTE_BAG' ? weightOrCount * 0.2 : weightOrCount;
+      const weightAdded = wasteType === 'TOTE_BAG' ? weightOrCount * 0.20 : weightOrCount * 0.05;
       await supabase
         .from('profiles')
         .update({
           total_points: profile.total_points + rewardPoints,
           total_weight_kg: Number((profile.total_weight_kg + weightAdded).toFixed(2)),
           total_carbon_saved_kg: Number((profile.total_carbon_saved_kg + carbonSaved).toFixed(2)),
-          updated_at: new Date().toISOString(),
         })
         .eq('id', userId);
     }
