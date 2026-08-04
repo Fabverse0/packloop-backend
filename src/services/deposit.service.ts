@@ -13,6 +13,11 @@ export class DepositService {
   static async createDeposit(input: CreateDepositInput) {
     const { userId, stationId, compartmentId, wasteType, weightOrCount } = input;
 
+    // ── PROTEKSI: Batas Maksimal Unit per Setoran (Maks 10 Unit) ────────────
+    if (weightOrCount > 10) {
+      throw new Error('Jumlah barang per setoran maksimal 10 unit.');
+    }
+
     // ── PROTEKSI 4: Cek Keaktifan Stasiun Fisik (ACTIVE) ────────────────────
     const { data: station, error: stationError } = await supabase
       .from('stations')

@@ -22,7 +22,12 @@ export class RewardService {
   static async redeemPoints(input: RedeemInput) {
     const { userId, eWalletProvider, accountNumber, pointsRedeemed } = input;
 
-    // 1. Syarat minimal 10 poin
+    // 1. Validasi nomor akun E-Wallet
+    if (!accountNumber || !accountNumber.trim()) {
+      throw new Error('Nomor akun E-Wallet wajib diisi.');
+    }
+
+    // 2. Syarat minimal 10 poin
     if (pointsRedeemed < 10) {
       throw new Error('Penukaran poin minimal 10 poin (= Rp1)');
     }

@@ -61,6 +61,16 @@ export class AIService {
     imageBase64: string,
     mimeType: string
   ): Promise<PackagingAnalysisResult> {
+    // Validasi kelengkapan gambar & format mimeType
+    if (!imageBase64 || !imageBase64.trim()) {
+      throw new Error('String Base64 gambar tidak boleh kosong');
+    }
+
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedMimeTypes.includes(mimeType)) {
+      throw new Error('Format gambar tidak didukung. Gunakan image/jpeg, image/png, atau image/webp');
+    }
+
     const apiKey = process.env.GEMINI_API_KEY || '';
     const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
