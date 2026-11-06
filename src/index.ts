@@ -22,6 +22,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import midtransRoutes from './routes/midtrans.routes.js';
 import { sendSuccess, sendError } from './utils/response.js';
 import { errorHandler } from './middleware/error.middleware.js';
+import { currentEnvironment } from './utils/env.js';
 
 dotenv.config();
 
@@ -71,7 +72,7 @@ app.get('/', (req: Request, res: Response) => {
 
   return sendSuccess(res, 'PackLoop Backend API is running smoothly!', {
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
+    environment: currentEnvironment(),
     documentation: `${baseUrl}/docs`,
     openapi_spec: `${baseUrl}/docs/openapi.json`,
   });

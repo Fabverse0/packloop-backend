@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { sendError } from '../utils/response.js';
+import { isLocalDev } from '../utils/env.js';
 
 /**
  * Centralized Error Handling Middleware
@@ -18,7 +19,7 @@ export function errorHandler(
   return sendError(
     res,
     'Terjadi kesalahan internal pada server. Silakan coba lagi nanti.',
-    process.env.NODE_ENV === 'development' ? err.message : null,
+    isLocalDev() ? err.message : null,
     500
   );
 }

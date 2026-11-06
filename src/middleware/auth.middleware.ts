@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service.js';
 import { sendError } from '../utils/response.js';
+import { isLocalDev } from '../utils/env.js';
 
 export const requireAuth = async (
   req: Request,
@@ -37,7 +38,7 @@ export const requireAuth = async (
       return sendError(
         res,
         'Token tidak valid atau telah kedaluwarsa.',
-        error ? error.message : null,
+        isLocalDev() && error ? error.message : null,
         401
       );
     }

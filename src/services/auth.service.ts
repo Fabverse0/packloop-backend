@@ -1,5 +1,6 @@
 import { supabase, supabaseAdmin } from '../config/supabase.js';
 import { User } from '@supabase/supabase-js';
+import { isLocalDev } from '../utils/env.js';
 
 export class AuthService {
   /**
@@ -13,8 +14,8 @@ export class AuthService {
     // Clean token string from quotes or excess whitespace
     const cleanToken = token.replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim();
 
-    // ⚡ DEV SHORTCUT: Jika mengetik "test" atau "dev-token" saat pengujian lokal
-    if (process.env.NODE_ENV !== 'production' && (cleanToken === 'test' || cleanToken === 'dev-token' || cleanToken === 'packloop')) {
+    // ⚡ DEV SHORTCUT: Jika mengetik "test" atau "dev-token" saat pengujian lokal (tidak pernah aktif di Vercel)
+    if (isLocalDev() && (cleanToken === 'test' || cleanToken === 'dev-token' || cleanToken === 'packloop')) {
       const devUserId = 'a9cf726f-d58a-4d5d-9ec7-8b7ce9615eac'; // User Fabian di Supabase
       const { data: adminData } = await supabaseAdmin.auth.admin.getUserById(devUserId);
       if (adminData?.user) {
