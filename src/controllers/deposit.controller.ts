@@ -41,7 +41,7 @@ export class DepositController {
 
       return sendSuccess(res, 'Analisis kemasan berhasil', analysisResult);
     } catch (error: any) {
-      return sendError(res, error.message || 'Gagal menganalisis foto kemasan', null, 500);
+      return sendError(res, error.message || 'Gagal menganalisis foto kemasan', null, error.statusCode || 500);
     }
   }
 

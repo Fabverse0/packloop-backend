@@ -1,12 +1,27 @@
 import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+export type AIProvider = 'GEMINI' | 'OPENROUTER';
+
 /**
- * Hasil analisis kemasan dari Google Gemini Vision AI.
+ * Dilempar saat semua provider AI sedang sibuk/gagal, supaya controller bisa membalas 503.
+ */
+export class AIServiceUnavailableError extends Error {
+  statusCode = 503;
+  constructor(message: string) {
+    super(message);
+    this.name = 'AIServiceUnavailableError';
+  }
+}
+
+/**
+ * Hasil analisis kemasan dari AI (Gemini, atau OpenRouter sebagai cadangan).
  */
 export interface PackagingAnalysisResult {
+  aiProvider: AIProvider;
   isEligible: boolean;
   status: 'LAYAK' | 'TIDAK_LAYAK';
   wasteType: 'TOTE_BAG' | 'PAPER_BAG' | 'UNKNOWN';
@@ -50,10 +65,90 @@ Jawab HANYA dalam format JSON berikut (tanpa markdown, tanpa komentar, tanpa bac
 }
 `;
 
+const RETRY_DELAYS_MS = [1000, 2000];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Error sementara (server sibuk, kuota/rate limit, gangguan jaringan) yang layak dicoba ulang.
+ */
+function isRetryableError(error: any): boolean {
+  const status = Number(error?.status ?? error?.code);
+  if ([408, 429, 500, 502, 503, 504].includes(status)) return true;
+  return /overloaded|unavailable|resource_exhausted|rate limit|timeout|ECONNRESET|ETIMEDOUT|fetch failed/i.test(
+    String(error?.message ?? '')
+  );
+}
+
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt >= RETRY_DELAYS_MS.length || !isRetryableError(error)) throw error;
+      await sleep(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
+
+/**
+ * Ambil objek JSON dari teks respons AI (toleran terhadap ```json fence atau teks tambahan).
+ */
+function parseJsonResponse(rawText: string): PackagingAnalysisResult {
+  const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  try {
+    return JSON.parse(start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned);
+  } catch {
+    throw new Error(`Gagal memproses respons AI. Raw response: ${rawText.substring(0, 200)}`);
+  }
+}
+
+async function callGemini(imageBase64: string, mimeType: string, apiKey: string): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: PACKAGING_ANALYSIS_PROMPT },
+          { inlineData: { mimeType, data: imageBase64 } },
+        ],
+      },
+    ],
+  });
+  return response.text?.trim() || '';
+}
+
+async function callOpenRouter(imageBase64: string, mimeType: string, apiKey: string): Promise<string> {
+  const client = new OpenAI({
+    baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+    apiKey,
+    defaultHeaders: { 'X-Title': 'PackLoop' },
+  });
+  const completion = await client.chat.completions.create({
+    model: process.env.OPENROUTER_MODEL || 'stealth/crouton-alpha',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: PACKAGING_ANALYSIS_PROMPT },
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+        ],
+      },
+    ],
+    response_format: { type: 'json_object' },
+  });
+  return completion.choices[0]?.message?.content?.trim() || '';
+}
+
 export class AIService {
   /**
-   * Menganalisis foto kemasan menggunakan Google Gemini Vision AI.
-   * @param imageBase64 - String Base64 dari foto kemasan (tanpa prefix "data:image/...;base64,").
+   * Menganalisis foto kemasan dengan AI vision.
+   * Urutan: Gemini (dicoba ulang jika sibuk) -> OpenRouter sebagai cadangan.
+   * @param imageBase64 - String Base64 dari foto kemasan (prefix "data:image/...;base64," akan dibuang otomatis).
    * @param mimeType - Tipe MIME gambar (misal: "image/jpeg", "image/png").
    * @returns Hasil analisis kemasan (PackagingAnalysisResult).
    */
@@ -61,8 +156,11 @@ export class AIService {
     imageBase64: string,
     mimeType: string
   ): Promise<PackagingAnalysisResult> {
+    // Buang prefix data URL jika frontend mengirim "data:image/...;base64,xxxx"
+    imageBase64 = (imageBase64 || '').replace(/^data:[^;]+;base64,/, '').trim();
+
     // Validasi kelengkapan gambar & format mimeType
-    if (!imageBase64 || !imageBase64.trim()) {
+    if (!imageBase64) {
       throw new Error('String Base64 gambar tidak boleh kosong');
     }
 
@@ -71,48 +169,38 @@ export class AIService {
       throw new Error('Format gambar tidak didukung. Gunakan image/jpeg, image/png, atau image/webp');
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || '';
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+    const providers: { name: AIProvider; apiKey: string; call: typeof callGemini }[] = [
+      { name: 'GEMINI' as const, apiKey: process.env.GEMINI_API_KEY || '', call: callGemini },
+      { name: 'OPENROUTER' as const, apiKey: process.env.OPENROUTER_API_KEY || '', call: callOpenRouter },
+    ].filter((p) => p.apiKey);
 
-    // Validasi API Key
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY belum dikonfigurasi di file .env');
+    if (providers.length === 0) {
+      throw new Error('GEMINI_API_KEY atau OPENROUTER_API_KEY belum dikonfigurasi di file .env');
     }
 
-    // Inisialisasi Google Gemini Client secara terisolasi
-    const ai = new GoogleGenAI({ apiKey });
-
-    // Kirim gambar + prompt ke Gemini Vision
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: PACKAGING_ANALYSIS_PROMPT },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: imageBase64,
-              },
-            },
-          ],
-        },
-      ],
-    });
-
-    // Ambil teks respons dari Gemini
-    const rawText = response.text?.trim() || '';
-
-    // Parsing JSON respons Gemini
-    let analysisResult: PackagingAnalysisResult;
-    try {
-      // Bersihkan jika ada backtick markdown
-      const cleanedText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      analysisResult = JSON.parse(cleanedText);
-    } catch {
-      throw new Error(`Gagal memproses respons AI. Raw response: ${rawText.substring(0, 200)}`);
+    // Coba provider satu per satu sampai ada yang berhasil
+    let analysisResult: PackagingAnalysisResult | null = null;
+    const failures: string[] = [];
+    for (const provider of providers) {
+      try {
+        const rawText = await withRetry(() => provider.call(imageBase64, mimeType, provider.apiKey));
+        analysisResult = { ...parseJsonResponse(rawText), aiProvider: provider.name };
+        break;
+      } catch (error: any) {
+        console.warn(`[AIService] ${provider.name} gagal: ${error?.message}`);
+        failures.push(`${provider.name}: ${String(error?.message ?? error).substring(0, 150)}`);
+      }
     }
+
+    if (!analysisResult) {
+      throw new AIServiceUnavailableError(
+        `Layanan AI sedang sibuk atau tidak tersedia. Silakan coba lagi beberapa saat. (${failures.join(' | ')})`
+      );
+    }
+
+    // Pastikan field angka benar-benar angka
+    analysisResult.quantity = Math.round(Number(analysisResult.quantity) || 1);
+    analysisResult.confidenceScore = Number(analysisResult.confidenceScore) || 0;
 
     // === PENGAMAN 1: Validasi confidenceScore (harus >= 0.70) ===
     if (analysisResult.confidenceScore < 0.70) {

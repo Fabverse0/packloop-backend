@@ -130,8 +130,9 @@ Cek status muatan kompartemen di stasiun (Kardus, Bubble Wrap, Tote Bag).
 ## ♻️ 4. Setor Kemasan / Drop-off (`/api/deposits`)
 
 ### `POST /api/deposits/analyze` (🔒 Protected) — 🤖 AI Scan Packaging
-Menganalisis foto kemasan menggunakan **Google Gemini 2.5 Flash Vision AI**.
+Menganalisis foto kemasan menggunakan **Google Gemini Vision AI**, dengan **OpenRouter** sebagai cadangan otomatis jika Gemini sibuk/gagal.
 AI secara otomatis mengidentifikasi jenis kemasan, kelayakan fisik, dan menghitung jumlah barang.
+Field `aiProvider` menunjukkan provider yang dipakai (`GEMINI` / `OPENROUTER`). Jika semua provider gagal, response `503`.
 * **Body Request**:
   ```json
   {
@@ -147,6 +148,7 @@ AI secara otomatis mengidentifikasi jenis kemasan, kelayakan fisik, dan menghitu
     "success": true,
     "message": "Analisis kemasan berhasil",
     "data": {
+      "aiProvider": "GEMINI",
       "isEligible": true,
       "status": "LAYAK",
       "wasteType": "TOTE_BAG",

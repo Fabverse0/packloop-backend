@@ -715,7 +715,9 @@ paths:
         - Setor Kemasan (Drop-off)
       summary: AI Scan Analisis Foto Kemasan (Gemini Vision)
       description: |
-        Menganalisis foto kemasan daur ulang menggunakan **Google Gemini 2.5 Flash Vision AI**.
+        Menganalisis foto kemasan daur ulang menggunakan **Google Gemini Vision AI**.
+        Jika Gemini sibuk/gagal (setelah dicoba ulang otomatis), backend beralih ke **OpenRouter** sebagai cadangan.
+        Provider yang dipakai dikembalikan di field `aiProvider` (`GEMINI` / `OPENROUTER`).
 
         AI akan secara otomatis:
         1. Mengidentifikasi jenis kemasan (`TOTE_BAG` atau `PAPER_BAG`).
@@ -739,7 +741,7 @@ paths:
               properties:
                 imageBase64:
                   type: string
-                  description: String Base64 dari foto kemasan (tanpa prefix "data:image/...;base64,"). Maksimal 5MB.
+                  description: String Base64 dari foto kemasan. Prefix "data:image/...;base64," boleh ikut (dibuang otomatis). Maksimal 5MB.
                   example: "/9j/4AAQSkZJRgABAQ..."
                 mimeType:
                   type: string
@@ -757,6 +759,7 @@ paths:
                 success: true
                 message: Analisis kemasan berhasil
                 data:
+                  aiProvider: GEMINI
                   isEligible: true
                   status: LAYAK
                   wasteType: TOTE_BAG
@@ -768,6 +771,8 @@ paths:
           $ref: '#/components/responses/BadRequestError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '503':
+          description: Semua provider AI (Gemini & OpenRouter) sedang sibuk atau gagal. Coba lagi beberapa saat.
         '500':
           $ref: '#/components/responses/InternalServerError'
 
