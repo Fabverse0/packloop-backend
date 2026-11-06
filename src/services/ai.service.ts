@@ -65,29 +65,52 @@ Jawab HANYA dalam format JSON berikut (tanpa markdown, tanpa komentar, tanpa bac
 }
 `;
 
-const RETRY_DELAYS_MS = [1000, 2000];
+/** Batas waktu total satu scan AI. Lewat dari ini, scan langsung dinyatakan gagal. */
+const AI_TOTAL_TIMEOUT_MS = Number(process.env.AI_TOTAL_TIMEOUT_MS) || 15000;
+/** Batas waktu satu percobaan Gemini (normalnya 1-2 detik), agar sisa waktu cukup untuk cadangan. */
+const GEMINI_ATTEMPT_TIMEOUT_MS = 6000;
+/** Jeda sebelum mencoba ulang Gemini saat sibuk (hanya 1x). */
+const GEMINI_RETRY_DELAY_MS = 500;
+/** Jangan mulai percobaan baru jika sisa waktu kurang dari ini. */
+const MIN_ATTEMPT_MS = 1500;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+class AITimeoutError extends Error {
+  constructor(ms: number) {
+    super(`Melebihi batas waktu ${ms}ms`);
+    this.name = 'AITimeoutError';
+  }
+}
 
 /**
  * Error sementara (server sibuk, kuota/rate limit, gangguan jaringan) yang layak dicoba ulang.
  */
 function isRetryableError(error: any): boolean {
+  if (error instanceof AITimeoutError) return false;
   const status = Number(error?.status ?? error?.code);
   if ([408, 429, 500, 502, 503, 504].includes(status)) return true;
-  return /overloaded|unavailable|resource_exhausted|rate limit|timeout|ECONNRESET|ETIMEDOUT|fetch failed/i.test(
+  return /overloaded|unavailable|resource_exhausted|rate limit|ECONNRESET|ETIMEDOUT|fetch failed/i.test(
     String(error?.message ?? '')
   );
 }
 
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      if (attempt >= RETRY_DELAYS_MS.length || !isRetryableError(error)) throw error;
-      await sleep(RETRY_DELAYS_MS[attempt]);
-    }
+/**
+ * Jalankan fn dengan batas waktu; request dibatalkan (abort) jika melewati batas.
+ */
+async function runWithTimeout<T>(ms: number, fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new AITimeoutError(ms));
+    }, ms);
+  });
+  try {
+    return await Promise.race([fn(controller.signal), timeout]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -105,8 +128,11 @@ function parseJsonResponse(rawText: string): PackagingAnalysisResult {
   }
 }
 
-async function callGemini(imageBase64: string, mimeType: string, apiKey: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
+type ProviderCall = (imageBase64: string, mimeType: string, apiKey: string, signal: AbortSignal) => Promise<string>;
+
+const callGemini: ProviderCall = async (imageBase64, mimeType, apiKey, signal) => {
+  // retry bawaan SDK dimatikan (attempts: 1); retry diatur sendiri agar tetap dalam batas waktu
+  const ai = new GoogleGenAI({ apiKey, httpOptions: { retryOptions: { attempts: 1 } } });
   const response = await ai.models.generateContent({
     model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
     contents: [
@@ -118,15 +144,17 @@ async function callGemini(imageBase64: string, mimeType: string, apiKey: string)
         ],
       },
     ],
+    config: { abortSignal: signal },
   });
   return response.text?.trim() || '';
-}
+};
 
-async function callOpenRouter(imageBase64: string, mimeType: string, apiKey: string): Promise<string> {
+const callOpenRouter: ProviderCall = async (imageBase64, mimeType, apiKey, signal) => {
   const client = new OpenAI({
     baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
     apiKey,
     defaultHeaders: { 'X-Title': 'PackLoop' },
+    maxRetries: 0, // retry bawaan SDK dimatikan agar tidak melewati batas waktu
   });
   const completion = await client.chat.completions.create({
     model: process.env.OPENROUTER_MODEL || 'stealth/crouton-alpha',
@@ -140,9 +168,9 @@ async function callOpenRouter(imageBase64: string, mimeType: string, apiKey: str
       },
     ],
     response_format: { type: 'json_object' },
-  });
+  }, { signal });
   return completion.choices[0]?.message?.content?.trim() || '';
-}
+};
 
 export class AIService {
   /**
@@ -169,35 +197,58 @@ export class AIService {
       throw new Error('Format gambar tidak didukung. Gunakan image/jpeg, image/png, atau image/webp');
     }
 
-    const providers: { name: AIProvider; apiKey: string; call: typeof callGemini }[] = [
-      { name: 'GEMINI' as const, apiKey: process.env.GEMINI_API_KEY || '', call: callGemini },
-      { name: 'OPENROUTER' as const, apiKey: process.env.OPENROUTER_API_KEY || '', call: callOpenRouter },
+    const providers: { name: AIProvider; apiKey: string; call: ProviderCall; attemptTimeoutMs: number; retryDelaysMs: number[] }[] = [
+      { name: 'GEMINI' as const, apiKey: process.env.GEMINI_API_KEY || '', call: callGemini, attemptTimeoutMs: GEMINI_ATTEMPT_TIMEOUT_MS, retryDelaysMs: [GEMINI_RETRY_DELAY_MS] },
+      // OpenRouter lambat (8-15 detik), jadi tidak dicoba ulang dan memakai sisa waktu yang ada
+      { name: 'OPENROUTER' as const, apiKey: process.env.OPENROUTER_API_KEY || '', call: callOpenRouter, attemptTimeoutMs: Infinity, retryDelaysMs: [] },
     ].filter((p) => p.apiKey);
 
     if (providers.length === 0) {
       throw new Error('GEMINI_API_KEY atau OPENROUTER_API_KEY belum dikonfigurasi di file .env');
     }
 
-    // Coba provider satu per satu sampai ada yang berhasil
+    // Coba provider satu per satu sampai ada yang berhasil, dalam batas waktu total
+    const deadline = Date.now() + AI_TOTAL_TIMEOUT_MS;
+    const remaining = () => deadline - Date.now();
     let analysisResult: PackagingAnalysisResult | null = null;
-    for (const provider of providers) {
-      const startedAt = Date.now();
-      try {
-        const rawText = await withRetry(() => provider.call(imageBase64, mimeType, provider.apiKey));
-        // aiProvider ditaruh di urutan pertama agar terlihat di potongan log frontend
-        analysisResult = Object.assign({ aiProvider: provider.name }, parseJsonResponse(rawText), {
-          aiProvider: provider.name,
-        });
-        console.log(`[AIService] ${provider.name} berhasil dalam ${Date.now() - startedAt}ms`);
-        break;
-      } catch (error: any) {
-        // Detail teknis hanya dicatat di log server, tidak dikirim ke pengguna
-        console.warn(`[AIService] ${provider.name} gagal setelah ${Date.now() - startedAt}ms: ${error?.message}`);
+    let timedOut = false;
+
+    providerLoop: for (const provider of providers) {
+      for (let attempt = 0; ; attempt++) {
+        if (remaining() < MIN_ATTEMPT_MS) {
+          timedOut = true;
+          console.warn(`[AIService] ${provider.name} dilewati: sisa waktu tidak cukup (${remaining()}ms)`);
+          break providerLoop;
+        }
+        const startedAt = Date.now();
+        try {
+          const timeoutMs = Math.min(provider.attemptTimeoutMs, remaining());
+          const rawText = await runWithTimeout(timeoutMs, (signal) =>
+            provider.call(imageBase64, mimeType, provider.apiKey, signal)
+          );
+          // aiProvider ditaruh di urutan pertama agar terlihat di potongan log frontend
+          analysisResult = Object.assign({ aiProvider: provider.name }, parseJsonResponse(rawText), {
+            aiProvider: provider.name,
+          });
+          console.log(`[AIService] ${provider.name} berhasil dalam ${Date.now() - startedAt}ms`);
+          break providerLoop;
+        } catch (error: any) {
+          if (error instanceof AITimeoutError) timedOut = true;
+          // Detail teknis hanya dicatat di log server, tidak dikirim ke pengguna
+          console.warn(`[AIService] ${provider.name} gagal setelah ${Date.now() - startedAt}ms: ${error?.message}`);
+          const delay = provider.retryDelaysMs[attempt];
+          if (delay === undefined || !isRetryableError(error)) break; // lanjut ke provider berikutnya
+          await sleep(delay);
+        }
       }
     }
 
     if (!analysisResult) {
-      throw new AIServiceUnavailableError('Layanan AI sedang sibuk. Silakan coba lagi beberapa saat.');
+      throw new AIServiceUnavailableError(
+        timedOut
+          ? 'Analisis AI memakan waktu terlalu lama. Silakan coba lagi.'
+          : 'Layanan AI sedang sibuk. Silakan coba lagi beberapa saat.'
+      );
     }
 
     // Pastikan field angka benar-benar angka
