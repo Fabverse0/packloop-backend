@@ -180,22 +180,24 @@ export class AIService {
 
     // Coba provider satu per satu sampai ada yang berhasil
     let analysisResult: PackagingAnalysisResult | null = null;
-    const failures: string[] = [];
     for (const provider of providers) {
+      const startedAt = Date.now();
       try {
         const rawText = await withRetry(() => provider.call(imageBase64, mimeType, provider.apiKey));
-        analysisResult = { ...parseJsonResponse(rawText), aiProvider: provider.name };
+        // aiProvider ditaruh di urutan pertama agar terlihat di potongan log frontend
+        analysisResult = Object.assign({ aiProvider: provider.name }, parseJsonResponse(rawText), {
+          aiProvider: provider.name,
+        });
+        console.log(`[AIService] ${provider.name} berhasil dalam ${Date.now() - startedAt}ms`);
         break;
       } catch (error: any) {
-        console.warn(`[AIService] ${provider.name} gagal: ${error?.message}`);
-        failures.push(`${provider.name}: ${String(error?.message ?? error).substring(0, 150)}`);
+        // Detail teknis hanya dicatat di log server, tidak dikirim ke pengguna
+        console.warn(`[AIService] ${provider.name} gagal setelah ${Date.now() - startedAt}ms: ${error?.message}`);
       }
     }
 
     if (!analysisResult) {
-      throw new AIServiceUnavailableError(
-        `Layanan AI sedang sibuk atau tidak tersedia. Silakan coba lagi beberapa saat. (${failures.join(' | ')})`
-      );
+      throw new AIServiceUnavailableError('Layanan AI sedang sibuk. Silakan coba lagi beberapa saat.');
     }
 
     // Pastikan field angka benar-benar angka
