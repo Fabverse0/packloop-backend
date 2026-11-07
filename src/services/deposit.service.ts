@@ -104,7 +104,29 @@ export class DepositService {
       `)
       .single();
 
-    if (depositError) throw new Error(depositError.message);
+    if (depositError) {
+      // Setoran ganda (scan QR terbaca berkali-kali): trigger DB menolaknya.
+      // Kembalikan setoran pertama agar aplikasi tetap menampilkan "berhasil" tanpa poin dobel.
+      if (depositError.message?.includes('DUPLICATE_DEPOSIT')) {
+        const { data: existing } = await supabase
+          .from('deposits')
+          .select(`
+            *,
+            stations (name, address)
+          `)
+          .eq('user_id', userId)
+          .eq('compartment_id', compartmentId)
+          .eq('waste_type', wasteType)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (existing) {
+          console.warn(`[DepositService] Setoran ganda diabaikan untuk user ${userId}`);
+          return existing;
+        }
+      }
+      throw new Error(depositError.message);
+    }
 
     // 5. Update berat & status kompartemen stasiun otomatis
     const fillPercentage = (newTotalWeight / compartment.max_capacity_kg) * 100;
@@ -124,24 +146,8 @@ export class DepositService {
       })
       .eq('id', compartmentId);
 
-    // 6. Update Stats pada Profil User (Poin + Berat + Karbon)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('total_points, total_weight_kg, total_carbon_saved_kg')
-      .eq('id', userId)
-      .single();
-
-    if (profile) {
-      const weightAdded = wasteType === 'TOTE_BAG' ? weightOrCount * 0.20 : weightOrCount * 0.05;
-      await supabase
-        .from('profiles')
-        .update({
-          total_points: profile.total_points + rewardPoints,
-          total_weight_kg: Number((profile.total_weight_kg + weightAdded).toFixed(2)),
-          total_carbon_saved_kg: Number((profile.total_carbon_saved_kg + carbonSaved).toFixed(2)),
-        })
-        .eq('id', userId);
-    }
+    // 6. Stats profil (poin, berat, karbon) ditambahkan oleh trigger DB `on_deposit_created`.
+    //    Jangan ditambah lagi di sini, supaya poin tidak terhitung dua kali.
 
     return deposit;
   }
